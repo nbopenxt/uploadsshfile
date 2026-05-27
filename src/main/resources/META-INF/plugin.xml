@@ -1,0 +1,37 @@
+<idea-plugin>
+    <id>com.openxt.uploadsshfile</id>
+    <name>Upload SSH File</name>
+    <vendor>openxt</vendor>
+    <version>1.0.0</version>
+    <idea-version since-build="253.2405.40" until-build=""/>
+    <description>Upload files via SSH plugin for IntelliJ IDEA</description>
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- 插件扩展点配置 -->
+    </extensions>
+
+    <actions>
+        <!-- 一级菜单：Upload SSH File -->
+        <group id="UploadSSHFile.Menu" text="Upload SSH File" popup="true">
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+            
+            <!-- 上传文件子菜单 -->
+            <action id="UploadSSHFile.Upload"
+                    class="com.openxt.uploadsshfile.action.UploadAction"/>
+            
+            <!-- 管理服务器配置子菜单 -->
+            <action id="UploadSSHFile.Config"
+                    class="com.openxt.uploadsshfile.action.ConfigAction"/>
+            
+            <!-- 命令配置子菜单 -->
+            <action id="UploadSSHFile.CommandConfig"
+                    class="com.openxt.uploadsshfile.action.OpenConfigDialogAction"/>
+            
+            <!-- AI 配置子菜单 -->
+            <action id="UploadSSHFile.AIConfig"
+                    class="com.openxt.uploadsshfile.action.OpenAIConfigDialogAction"/>
+        </group>
+    </actions>
+</idea-plugin>
