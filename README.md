@@ -1,4 +1,4 @@
-# UploadSSHFile - IntelliJ IDEA Plugin Marketplace Introduction
+# UploadSSHFile Introduction
 
 ---
 
@@ -248,7 +248,7 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 ---
 
-# UploadSSHFile - IntelliJ IDEA 插件市场介绍文档
+# UploadSSHFile 介绍文档
 
 ---
 
