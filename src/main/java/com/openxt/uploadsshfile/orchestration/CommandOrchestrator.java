@@ -250,7 +250,7 @@ public class CommandOrchestrator {
                             if (output.isEmpty()) {
                                 result.setStderr(aiCheckResult);
                             } else {
-                                result.setStderr(output + "\n[AI判断] " + aiCheckResult);
+                                result.setStderr(output + "\n" + LanguageManager.getInstance().get("ai.judgment.prefix") + aiCheckResult);
                             }
                         }
                     }

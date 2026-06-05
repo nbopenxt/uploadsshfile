@@ -2,7 +2,7 @@
     <id>com.openxt.uploadsshfile</id>
     <name>Upload SSH File</name>
     <vendor>openxt</vendor>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <idea-version since-build="253"/>
     <description>Upload files via SSH plugin for IntelliJ IDEA</description>
     <depends>com.intellij.modules.platform</depends>
@@ -17,21 +17,29 @@
         <group id="UploadSSHFile.Menu" text="Upload SSH File" popup="true">
             <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
             
-            <!-- 上传文件子菜单 -->
+            <!-- 批处理上传子菜单 -->
+            <action id="UploadSSHFile.BatchUpload"
+                    class="com.openxt.uploadsshfile.action.BatchUploadAction"/>
+            
+            <!-- 单次上传文件子菜单 -->
             <action id="UploadSSHFile.Upload"
                     class="com.openxt.uploadsshfile.action.UploadAction"/>
             
-            <!-- 管理服务器配置子菜单 -->
+            <!-- 服务器配置子菜单 -->
             <action id="UploadSSHFile.Config"
                     class="com.openxt.uploadsshfile.action.ConfigAction"/>
             
-            <!-- 命令配置子菜单 -->
+            <!-- SSH命令配置子菜单 -->
             <action id="UploadSSHFile.CommandConfig"
                     class="com.openxt.uploadsshfile.action.OpenConfigDialogAction"/>
             
-            <!-- AI 配置子菜单 -->
+            <!-- AI配置子菜单 -->
             <action id="UploadSSHFile.AIConfig"
                     class="com.openxt.uploadsshfile.action.OpenAIConfigDialogAction"/>
+            
+            <!-- 导入导出配置子菜单 -->
+            <action id="UploadSSHFile.ImportExportConfig"
+                    class="com.openxt.uploadsshfile.action.ImportExportConfigAction"/>
         </group>
     </actions>
 </idea-plugin>

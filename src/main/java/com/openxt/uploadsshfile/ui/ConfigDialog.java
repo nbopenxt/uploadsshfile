@@ -8,6 +8,7 @@ import com.openxt.uploadsshfile.config.ServerConfig;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
 import com.openxt.uploadsshfile.model.OperatingSystem;
 import com.openxt.uploadsshfile.sftp.SftpValidator;
+import com.openxt.uploadsshfile.store.UnifiedConfigStore;
 import com.openxt.uploadsshfile.util.Logger;
 
 import javax.swing.*;
@@ -21,7 +22,9 @@ import java.util.List;
 public class ConfigDialog extends JDialog {
     private JTabbedPane tabbedPane;
     private ConfigManager configManager;
+    private UnifiedConfigStore configStore;
     private JComboBox<LanguageManager.LanguageInfo> languageCombo;
+    private JCheckBox logEnabledCheckbox;
 
     // \u670d\u52a1\u5668\u5217\u8868
     private JTable serverTable;
@@ -48,6 +51,7 @@ public class ConfigDialog extends JDialog {
         super(WindowManager.getInstance().getFrame(project), 
               LanguageManager.getInstance().get("config.title"), true);
         this.configManager = ConfigManager.getInstance();
+        this.configStore = UnifiedConfigStore.getInstance();
 
         initComponents();
         loadServers();
@@ -62,14 +66,14 @@ public class ConfigDialog extends JDialog {
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        // \u8bed\u8a00\u9009\u62e9\u9762\u677f
+        // 语言选择面板
         JPanel languagePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         languagePanel.add(new JLabel(lm.get("language") + ":"));
         languageCombo = new JComboBox<>();
         for (LanguageManager.LanguageInfo lang : LanguageManager.getSupportedLanguages()) {
             languageCombo.addItem(lang);
         }
-        // \u8bbe\u7f6e\u5f53\u524d\u8bed\u8a00
+        // 设置当前语言
         String currentLang = lm.getCurrentLanguage();
         for (int i = 0; i < languageCombo.getItemCount(); i++) {
             LanguageManager.LanguageInfo item = languageCombo.getItemAt(i);
@@ -80,6 +84,20 @@ public class ConfigDialog extends JDialog {
         }
         languageCombo.addActionListener(e -> onLanguageChanged());
         languagePanel.add(languageCombo);
+
+        // 日志开关 Checkbox
+        logEnabledCheckbox = new JCheckBox(lm.get("config.enable.log"));
+        logEnabledCheckbox.setSelected(configStore.getConfig().isLogEnabled());
+        logEnabledCheckbox.addActionListener(e -> {
+            configStore.getConfig().setLogEnabled(logEnabledCheckbox.isSelected());
+            Logger.setLogOutput(logEnabledCheckbox.isSelected());
+            try {
+                configStore.save();
+            } catch (Exception ex) {
+                Logger.error("ConfigDialog", "Failed to save log setting", ex);
+            }
+        });
+        languagePanel.add(logEnabledCheckbox);
 
         tabbedPane = new JTabbedPane();
 

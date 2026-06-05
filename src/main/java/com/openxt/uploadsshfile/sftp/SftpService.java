@@ -2,6 +2,7 @@ package com.openxt.uploadsshfile.sftp;
 
 import com.jcraft.jsch.*;
 import com.openxt.uploadsshfile.config.ServerConfig;
+import com.openxt.uploadsshfile.i18n.LanguageManager;
 import com.openxt.uploadsshfile.util.Logger;
 import com.openxt.uploadsshfile.util.Md5Checksum;
 
@@ -129,11 +130,9 @@ public class SftpService {
             // 校验：配置中的 osType 与实际检测结果必须一致
             boolean configuredWindows = "windows".equalsIgnoreCase(config.getOsType());
             if (configuredWindows != detectedWindows) {
-                String errorMsg = String.format(
-                    "服务器类型配置不一致！配置为 [%s]，实际检测为 [%s]。\n" +
-                    "请检查服务器 '%s' 的操作系统类型配置是否正确。",
-                    config.getOsType(), detectedWindows ? "windows" : "linux", config.getName()
-                );
+                LanguageManager lm = LanguageManager.getInstance();
+                String errorMsg = lm.get("sftp.error.osMismatch",
+                    config.getOsType(), detectedWindows ? "windows" : "linux", config.getName());
                 Logger.error("SftpService", errorMsg);
                 disconnect();
                 throw new SftpException(SftpErrorCode.CONNECTION_FAILED, errorMsg);
@@ -142,12 +141,12 @@ public class SftpService {
 
         } catch (JSchException e) {
             Logger.error("SftpService", "JSch error", e);
-            throw new SftpException(SftpErrorCode.CONNECTION_FAILED, "SSH连接失败: " + e.getMessage());
+            throw new SftpException(SftpErrorCode.CONNECTION_FAILED, LanguageManager.getInstance().get("sftp.error.sshConnectionFailed", e.getMessage()));
         } catch (SftpException e) {
             throw e;
         } catch (Exception e) {
             Logger.error("SftpService", "Connection error", e);
-            throw new SftpException(SftpErrorCode.CONNECTION_FAILED, "连接失败: " + e.getMessage());
+            throw new SftpException(SftpErrorCode.CONNECTION_FAILED, LanguageManager.getInstance().get("sftp.error.connectionFailedWithMsg", e.getMessage()));
         }
     }
 
@@ -181,7 +180,7 @@ public class SftpService {
         try {
             return channel.pwd();
         } catch (Exception e) {
-            return "未知";
+            return LanguageManager.getInstance().get("sftp.unknown");
         }
     }
 
@@ -223,19 +222,20 @@ public class SftpService {
             Logger.debug("SftpService", "cd: " + path + " -> " + sftpPath);
             channel.cd(sftpPath);
         } catch (Exception e) {
-            throw new SftpException(SftpErrorCode.TRANSFER_FAILED, "切换目录失败: " + path + " - " + e.getMessage());
+            throw new SftpException(SftpErrorCode.TRANSFER_FAILED, LanguageManager.getInstance().get("sftp.error.cdFailed", path, e.getMessage()));
         }
     }
 
     /**
-     * 上传文件（无 MD5 校验，自动处理 Windows 路径）
+     * Upload file (no MD5 check, auto-handle Windows path)
      */
     public void uploadFile(File file, String remotePath, UploadProgressCallback callback) throws SftpException {
+        Logger.debug("SftpService", "uploadFile: " + file.getAbsolutePath() + " to " + remotePath);
         String sftpPath = isWindows ? toSftpPath(remotePath) : remotePath;
         try {
-            // 确保目录存在
+            // Ensure directory exists
             cd(sftpPath);
-            // 上传到当前目录
+            // Upload to current directory
             uploadFileToCurrentDir(file, callback);
         } catch (SftpException e) {
             throw e;
@@ -243,9 +243,10 @@ public class SftpService {
     }
 
     /**
-     * 上传到当前目录
+     * Upload to current directory
      */
     private void uploadFileToCurrentDir(File file, UploadProgressCallback callback) throws SftpException {
+        Logger.debug("SftpService", "uploadFileToCurrentDir: " + file.getName() + ", size=" + file.length());
         try {
             long fileSize = file.length();
 
@@ -256,6 +257,7 @@ public class SftpService {
 
                 @Override
                 public void init(int op, String src, String dest, long max) {
+                    Logger.debug("SftpService", "SftpProgressMonitor.init: " + src + " -> " + dest + ", max=" + max);
                 }
 
                 @Override
@@ -268,6 +270,7 @@ public class SftpService {
 
                 @Override
                 public void end() {
+                    Logger.debug("SftpService", "SftpProgressMonitor.end: " + file.getName());
                     callback.onFileCompleted(file.getName(), fileSize, true, null);
                 }
             });
@@ -275,6 +278,7 @@ public class SftpService {
             Logger.debug("SftpService", "File uploaded: " + file.getName() + ", size=" + fileSize);
 
         } catch (Exception e) {
+            Logger.error("SftpService", "Upload failed for " + file.getName() + ": " + e.getMessage());
             callback.onFileCompleted(file.getName(), file.length(), false, e.getMessage());
             throw new SftpException(SftpErrorCode.TRANSFER_FAILED, e.getMessage());
         }
@@ -334,36 +338,38 @@ public class SftpService {
             String verifyError = null;
 
             if (isWindows) {
-                // Windows: 文件大小校验
+                // Windows: file size verification
+                LanguageManager lms = LanguageManager.getInstance();
                 SizeVerifyResult sizeResult = verifyRemoteFileSize(remoteFilePath, fileSize);
                 if (sizeResult.hasError()) {
-                    verifyError = "文件大小校验失败: " + sizeResult.getErrorMessage();
+                    verifyError = lms.get("sftp.error.sizeVerifyFailed", sizeResult.getErrorMessage());
                     Logger.error("SftpService", verifyError);
                 } else if (!sizeResult.isMatched()) {
-                    verifyError = String.format("文件大小不匹配！本地=%d 字节，远程=%d 字节",
-                        sizeResult.getLocalSize(), sizeResult.getRemoteSize());
+                    verifyError = lms.get("sftp.error.sizeMismatch",
+                        String.valueOf(sizeResult.getLocalSize()), String.valueOf(sizeResult.getRemoteSize()));
                     Logger.error("SftpService", verifyError);
                 } else {
                     verifySuccess = true;
-                    Logger.debug("SftpService", "文件大小校验成功");
+                    Logger.debug("SftpService", "File size verification succeeded");
                 }
             } else {
-                // Linux: MD5 校验
+                // Linux: MD5 verification
                 if (localMd5 == null || localMd5.isEmpty()) {
-                    Logger.warn("SftpService", "Linux服务器未提供MD5，跳过校验");
+                    Logger.warn("SftpService", "Linux server, no MD5 provided, skip verification");
                     verifySuccess = true;
                 } else {
+                    LanguageManager lms = LanguageManager.getInstance();
                     Md5VerifyResult md5Result = verifyRemoteMd5(remoteFilePath, localMd5);
                     if (md5Result.hasError()) {
-                        verifyError = "MD5校验失败: " + md5Result.getErrorMessage();
+                        verifyError = lms.get("sftp.error.md5VerifyFailed", md5Result.getErrorMessage());
                         Logger.error("SftpService", verifyError);
                     } else if (!md5Result.isMatched()) {
-                        verifyError = String.format("MD5不匹配！本地=%s，远程=%s",
+                        verifyError = lms.get("sftp.error.md5Mismatch",
                             md5Result.getLocalMd5(), md5Result.getRemoteMd5());
                         Logger.error("SftpService", verifyError);
                     } else {
                         verifySuccess = true;
-                        Logger.debug("SftpService", "MD5校验成功");
+                        Logger.debug("SftpService", "MD5 verification succeeded");
                     }
                 }
             }

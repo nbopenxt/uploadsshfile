@@ -15,7 +15,7 @@ public class Logger {
     public static boolean IsLogOutput = false;
 
     /** 日志文件目录 */
-    private static String logDirectory = "E:\\code\\ideaplugin\\uploadsshfile\\logs\\";
+    private static String logDirectory = System.getProperty("user.home") + File.separator + ".uploadsshfile" + File.separator + "logs" + File.separator;
 
     /** 当前日志文件 */
     private static File currentLogFile;
@@ -31,10 +31,14 @@ public class Logger {
         if (currentLogFile == null) {
             File dir = new File(logDirectory);
             if (!dir.exists()) {
-                dir.mkdirs();
+                boolean created = dir.mkdirs();
+                System.out.println("[UploadSSHFile] Creating log directory: " + dir.getAbsolutePath() + " -> " + created);
             }
             String fileName = "uploadsshfile_" + FILE_DATE_FORMAT.format(new Date()) + ".log";
             currentLogFile = new File(dir, fileName);
+            // 在控制台打印日志文件的绝对路径，方便查找
+            System.out.println("[UploadSSHFile] Log file location: " + currentLogFile.getAbsolutePath());
+            System.out.println("[UploadSSHFile] IsLogOutput is set to: " + IsLogOutput);
         }
     }
 
@@ -44,6 +48,8 @@ public class Logger {
     public static void debug(String tag, String message) {
         if (IsLogOutput) {
             log("DEBUG", tag, message);
+        } else {
+            System.out.println("[UploadSSHFile] [DEBUG] [" + tag + "] " + message + " (Skipped due to IsLogOutput=false)");
         }
     }
 
@@ -60,6 +66,8 @@ public class Logger {
     public static void info(String tag, String message) {
         if (IsLogOutput) {
             log("INFO", tag, message);
+        } else {
+            System.out.println("[UploadSSHFile] [INFO] [" + tag + "] " + message + " (Skipped due to IsLogOutput=false)");
         }
     }
 
@@ -92,6 +100,8 @@ public class Logger {
     public static void error(String tag, String message) {
         if (IsLogOutput) {
             log("ERROR", tag, message);
+        } else {
+            System.err.println("[UploadSSHFile] [ERROR] [" + tag + "] " + message + " (Skipped due to IsLogOutput=false)");
         }
     }
 
@@ -129,7 +139,8 @@ public class Logger {
             pw.println(logLine);
             pw.flush();
         } catch (IOException e) {
-            System.err.println("Failed to write log: " + e.getMessage());
+            System.err.println("Failed to write log to " + currentLogFile.getAbsolutePath() + ": " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -153,9 +164,9 @@ public class Logger {
     }
 
     /**
-     * 获取日志目录
+     * 设置日志开关
      */
-    public static String getLogDirectory() {
-        return logDirectory;
+    public static void setLogOutput(boolean enabled) {
+        IsLogOutput = enabled;
     }
 }

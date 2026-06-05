@@ -1,13 +1,13 @@
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+
 plugins {
     java
     id("org.jetbrains.intellij.platform") version "2.15.0"
 }
 
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-
 group = "com.openxt"
-version = "1.0.1"
+version = "1.0.2"
 
 repositories {
     mavenCentral()
@@ -260,5 +260,22 @@ tasks.register<JavaExec>("runShellChannelTest3") {
     )
 
     // 工作目录
+    workingDir = project.projectDir
+}
+
+// 运行批处理进度模拟测试
+tasks.register<JavaExec>("runBatchProgressSimulationTest") {
+    group = "verification"
+    description = "运行批处理进度模拟测试"
+
+    mainClass.set("com.openxt.uploadsshfile.batch.BatchProgressSimulationTestRunner")
+
+    classpath = sourceSets["test"].runtimeClasspath + sourceSets["main"].runtimeClasspath
+
+    jvmArgs(
+        "-Xmx512m",
+        "-Dfile.encoding=UTF-8"
+    )
+
     workingDir = project.projectDir
 }

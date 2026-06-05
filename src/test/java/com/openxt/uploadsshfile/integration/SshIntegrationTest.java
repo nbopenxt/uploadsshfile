@@ -5,6 +5,7 @@ import com.jcraft.jsch.Session;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.ChannelSftp;
 import com.openxt.uploadsshfile.TestConfig;
+import com.openxt.uploadsshfile.TestConfigAssume;
 import com.openxt.uploadsshfile.ai.AICommandChecker;
 import com.openxt.uploadsshfile.ai.AIResultChecker;
 import com.openxt.uploadsshfile.ai.LangChainAiService;
@@ -64,6 +65,9 @@ public class SshIntegrationTest {
 
     @Before
     public void setUp() throws Exception {
+        // 检查 Linux 服务器配置是否完整，如果未配置则跳过所有测试
+        TestConfigAssume.assumeLinuxRemotePathConfigured();
+        
         System.out.println("=".repeat(60));
         System.out.println("SSH Integration Test Setup");
         System.out.println("=".repeat(60));

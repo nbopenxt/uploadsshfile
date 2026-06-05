@@ -358,23 +358,6 @@ public class SshCommandService {
     }
     
     /**
-     * 解析退出码
-     * @deprecated 使用新的检测逻辑，直接在读取循环中检测 __EXIT_CODE__=数字
-     */
-    private int parseExitCode(String rawOutput, ShellType shellType) {
-        if (rawOutput == null || rawOutput.isEmpty()) {
-            return -1;
-        }
-        
-        // 使用正则解析 __EXIT_CODE__=数字
-        Matcher matcher = EXIT_CODE_PATTERN.matcher(rawOutput);
-        if (matcher.find()) {
-            return Integer.parseInt(matcher.group(1));
-        }
-        return -1;
-    }
-    
-    /**
      * 去除 shell 提示符行
      * 
      * <p>Shell 提示符通常格式：

@@ -2,6 +2,7 @@ package com.openxt.uploadsshfile.store;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.openxt.uploadsshfile.batch.BatchTask;
 import com.openxt.uploadsshfile.config.PathConfig;
 import com.openxt.uploadsshfile.config.ServerConfig;
 import com.openxt.uploadsshfile.model.CommandConfig;
@@ -430,6 +431,19 @@ public class UnifiedConfigStore {
     public synchronized void deleteCommandConfigByServerAndPath(String serverId, String pathId) {
         cache.getCommandConfigs().removeIf(c -> 
             serverId.equals(c.getServerId()) && pathId.equals(c.getPathId()));
+        save();
+    }
+
+    // ========== 批处理任务操作 ==========
+
+    /** 获取所有批处理任务 */
+    public synchronized List<BatchTask> getBatchTasks() {
+        return cache.getBatchTasks();
+    }
+
+    /** 设置批处理任务列表并保存 */
+    public synchronized void setBatchTasks(List<BatchTask> batchTasks) {
+        cache.setBatchTasks(batchTasks);
         save();
     }
 }

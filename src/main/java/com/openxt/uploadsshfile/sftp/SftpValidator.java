@@ -6,6 +6,7 @@ import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.SftpException;
+import com.openxt.uploadsshfile.i18n.LanguageManager;
 
 /**
  * SFTP 连接验证器
@@ -108,25 +109,26 @@ public class SftpValidator {
      * 验证服务器配置是否有效
      */
     public static ValidationResult validateServer(String host, int port, String username, String password) {
+        LanguageManager lm = LanguageManager.getInstance();
         if (host == null || host.trim().isEmpty()) {
-            return new ValidationResult(false, "服务器地址不能为空");
+            return new ValidationResult(false, lm.get("sftp.validation.hostEmpty"));
         }
         if (port <= 0 || port > 65535) {
-            return new ValidationResult(false, "端口号无效");
+            return new ValidationResult(false, lm.get("sftp.validation.portInvalid"));
         }
         if (username == null || username.trim().isEmpty()) {
-            return new ValidationResult(false, "用户名不能为空");
+            return new ValidationResult(false, lm.get("sftp.validation.usernameEmpty"));
         }
         if (password == null || password.isEmpty()) {
-            return new ValidationResult(false, "密码不能为空");
+            return new ValidationResult(false, lm.get("sftp.validation.passwordEmpty"));
         }
 
-        // 测试连接
+        // Test connection
         if (!testConnection(host, port, username, password)) {
-            return new ValidationResult(false, "无法连接到服务器，请检查地址、端口和凭据");
+            return new ValidationResult(false, lm.get("sftp.validation.cannotConnect"));
         }
 
-        return new ValidationResult(true, "验证通过");
+        return new ValidationResult(true, lm.get("sftp.validation.passed"));
     }
 
     /**

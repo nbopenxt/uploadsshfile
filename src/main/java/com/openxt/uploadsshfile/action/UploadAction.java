@@ -25,6 +25,7 @@ import com.openxt.uploadsshfile.sftp.SftpException;
 import com.openxt.uploadsshfile.store.StoreManager;
 import com.openxt.uploadsshfile.store.UnifiedConfigStore;
 import com.openxt.uploadsshfile.sftp.SftpService;
+import com.openxt.uploadsshfile.sftp.SftpValidator;
 import com.openxt.uploadsshfile.ssh.SshCommandService;
 import com.openxt.uploadsshfile.util.Md5Checksum;
 import com.openxt.uploadsshfile.ui.ExecutionProgressDialog;
@@ -70,8 +71,8 @@ public class UploadAction extends AnAction {
     @Override
     public void update(@NotNull AnActionEvent e) {
         // 设置菜单文本（支持国际化）
-        e.getPresentation().setText(lm.get("menu.upload"));
-        e.getPresentation().setDescription(lm.get("menu.upload.desc"));
+        e.getPresentation().setText(lm.get("menu.upload.single"));
+        e.getPresentation().setDescription(lm.get("menu.upload.single.desc"));
         // 菜单始终可用
         e.getPresentation().setEnabled(true);
     }
@@ -310,25 +311,51 @@ public class UploadAction extends AnAction {
     }
 
     /**
-     * 提示用户输入密码
+     * 提示用户输入密码，输入后先做连接测试，测试成功则自动保存密码
      */
     private String promptForPassword(Project project, ServerConfig server) {
-        JPasswordField passwordField = new JPasswordField();
-        passwordField.setEchoChar('*');
+        while (true) {
+            JPasswordField passwordField = new JPasswordField(20);
+            passwordField.setEchoChar('*');
 
-        String message = lm.get("action.upload.enter.password", server.getName());
-        int result = JOptionPane.showConfirmDialog(
-                null,
-                passwordField,
-                lm.get("action.upload.password.title"),
-                JOptionPane.OK_CANCEL_OPTION,
-                JOptionPane.QUESTION_MESSAGE
-        );
+            JPanel panel = new JPanel(new BorderLayout(5, 5));
+            panel.add(new JLabel(lm.get("action.upload.enter.password", server.getName())), BorderLayout.NORTH);
+            panel.add(passwordField, BorderLayout.CENTER);
 
-        if (result == JOptionPane.OK_OPTION) {
-            return new String(passwordField.getPassword());
+            int result = JOptionPane.showConfirmDialog(
+                    null,
+                    panel,
+                    lm.get("action.upload.password.title"),
+                    JOptionPane.OK_CANCEL_OPTION,
+                    JOptionPane.QUESTION_MESSAGE
+            );
+
+            if (result != JOptionPane.OK_OPTION) {
+                return null;
+            }
+
+            String password = new String(passwordField.getPassword());
+            if (password.isEmpty()) {
+                continue;
+            }
+
+            // 测试连接
+            boolean testSuccess = SftpValidator.testConnection(
+                    server.getHost(), server.getPort(), server.getUsername(), password);
+
+            if (testSuccess) {
+                // 保存密码到安全存储，下次无需再次输入
+                configManager.savePassword(server.getId(), password);
+                return password;
+            } else {
+                JOptionPane.showMessageDialog(
+                        null,
+                        lm.get("msg.test.connection.failed"),
+                        lm.get("error.title"),
+                        JOptionPane.ERROR_MESSAGE
+                );
+            }
         }
-        return null;
     }
 
     /**
@@ -445,7 +472,7 @@ public class UploadAction extends AnAction {
                                                 // MD5不匹配，询问用户
                                                 final String localMd5Str = finalLocalMd5;
                                                 final String remoteMd5Str = verifyResult.getRemoteMd5();
-                                                String mismatchMsg = String.format("MD5不匹配！本地=%s，远程=%s", localMd5Str, remoteMd5Str);
+                                                String mismatchMsg = lm.get("sftp.error.md5Mismatch", localMd5Str, remoteMd5Str);
                                                 boolean userChoice = progressDialog.askUploadFailedContinue(fileName, mismatchMsg);
                                                 if (!userChoice) {
                                                     uploadSuccess = false;
@@ -687,7 +714,7 @@ public class UploadAction extends AnAction {
                                 // 命令失败，询问用户是否继续
                                 boolean userChoice = progressDialog.askCommandFailedContinue(command, errorInfo);
                                 if (!userChoice) {
-                                    progressDialog.appendLog("\n用户选择停止执行");
+                                    progressDialog.appendLog("\n" + lm.get("execution.user.stopped"));
                                 }
                             });
                         }
