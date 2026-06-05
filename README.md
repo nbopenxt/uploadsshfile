@@ -39,7 +39,7 @@ UploadSSHFile is an IntelliJ IDEA plugin designed for developers. It integrates 
 ### 1. SFTP File Upload
 
 - **Right-click one-click upload**: Right-click any file or directory in the IDEA project view to upload
-- **Multi-file/directory support**: Supports uploading single files, multiple files, or entire directories
+- **Multi-server/multi-file/directory support**: Supports single file, multiple files, entire directory, multi-server upload
 - **MD5 integrity check**: Automatically verifies local vs. remote file MD5 after upload to ensure reliable transfer; prompts user when verification fails
 - **Real-time progress display**: Shows upload progress, transfer speed, completed file count, and other details
 - **Secure password storage**: Passwords are encrypted and stored separately in a local encrypted file; the config file itself does not contain plaintext passwords
@@ -464,7 +464,7 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 
 ---
 
-## 光标菜单入口
+## 右键菜单入口
 
 右键项目文件或目录后，可见一级菜单 **Upload SSH File**，包含以下子菜单：
 
