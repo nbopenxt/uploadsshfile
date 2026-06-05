@@ -193,11 +193,11 @@ public class ProgressDialog extends JDialog {
 
         long elapsed = System.currentTimeMillis() - startTime;
         appendLog("\n" + lm.get("progress.complete"));
-        appendLog("Files: " + total);
-        appendLog("Success: " + success);
-        appendLog("Failed: " + (total - success));
-        appendLog("Size: " + formatSize(totalBytes));
-        appendLog("Time: " + formatTime(elapsed / 1000));
+        appendLog(lm.get("batch.task.log.files") + ": " + total);
+        appendLog(lm.get("batch.task.success") + ": " + success);
+        appendLog(lm.get("batch.task.failed") + ": " + (total - success));
+        appendLog(lm.get("batch.task.log.size") + ": " + formatSize(totalBytes));
+        appendLog(lm.get("batch.task.log.time") + ": " + formatTime(elapsed / 1000));
     }
 
     public void appendLog(String message) {

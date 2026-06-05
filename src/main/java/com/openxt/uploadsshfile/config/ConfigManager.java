@@ -160,4 +160,19 @@ public class ConfigManager {
     public String getPassword(String serverId) {
         return secureStorage.retrieve(serverId);
     }
+
+    /**
+     * 保存密码到安全存储
+     */
+    public void savePassword(String serverId, String password) {
+        if (!isEmpty(password)) {
+            Logger.debug("ConfigManager", "Storing password for id=" + serverId);
+            try {
+                secureStorage.store(serverId, password);
+                Logger.debug("ConfigManager", "Password stored successfully");
+            } catch (Exception e) {
+                Logger.error("ConfigManager", "Password storage failed", e);
+            }
+        }
+    }
 }

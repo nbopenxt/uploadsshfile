@@ -6,7 +6,7 @@
 
 **Plugin Name**: UploadSSHFile  
 **Plugin ID**: `com.openxt.uploadsshfile`  
-**Version**: 0.0.1  
+**Version**: 1.0.2  
 **Developer**: Kola  
 **Category**: Utility
 
@@ -94,19 +94,35 @@ Pattern-matches commands using built-in regex rules to identify common risky ope
 - **Cascading deletion**: Deleting a server automatically cleans up associated paths and command groups
 - **Form validation**: Unique name validation and required field checks
 
-### 6. Last Selection Memory
+### 6. Batch Upload Tasks
+
+- **Batch task management**: Create, edit, clone, and delete batch upload tasks
+- **Multi-subtask composition**: Each batch task contains multiple sub-tasks, each specifying server + upload path + files + command group
+- **Sequential execution**: Sub-tasks execute in order; each sub-task completes its upload and command before the next begins
+- **Real-time progress**: Shows overall batch progress, current sub-task status, and per-sub-task results
+- **One-click execution**: Select a batch task from the menu and run all sub-tasks at once
+
+### 7. Import / Export Configuration
+
+- **Full configuration export**: Export all settings (servers, paths, command groups, batch tasks, AI configs, blacklists, keyword rules) to a single JSON file
+- **Intelligent import**: Import previously exported configurations with automatic conflict resolution
+- **Difference preview**: Preview import contents before applying, showing added/updated/skipped counts per category
+- **Smart merging**: Merge imported config with existing config via dedicated per-category merger strategies (ServerMerger, PathMerger, CommandConfigMerger, BatchTaskMerger, BlacklistMerger, KeywordRulesMerger, AIConfigMerger, etc.)
+- **Data portability**: Easily transfer configurations between different IDEA installations or share with team members
+
+### 8. Last Selection Memory
 
 - **Smart memory**: Automatically remembers the last successful server and command group after each upload or command execution
 - **Auto-restore**: Next time the upload dialog opens, the last successful server and command group are auto-selected
 - **Graceful fallback**: If the previously remembered config has been deleted, falls back to the first available option
 
-### 7. Internationalization
+### 9. Internationalization
 
 - **8 languages**: English, 中文, Deutsch, Français, Español, 日本語, 한국어, العربية
 - **Parameterized text**: Supports `{0}`, `{1}` placeholder substitution
 - **Persistent language setting**: Language preference saved in config file, takes effect after restart
 
-### 8. Unified Configuration
+### 10. Unified Configuration
 
 - **Single config file**: All settings (servers, paths, command groups, blacklists, AI, language, etc.) stored in a single `plugin-config.json`
 - **Uninstall-safe**: Config directory is independent of the plugin directory; settings are preserved after uninstall
@@ -119,7 +135,7 @@ Pattern-matches commands using built-in regex rules to identify common risky ope
 | Item | Requirement |
 |:---|:---|
 | IDE | IntelliJ IDEA 2025.3.x (Build 253+) |
-| JDK | OpenJDK 17 |
+| JDK | OpenJDK 21 |
 | OS | Windows 10/11, macOS, Linux |
 
 ---
@@ -146,6 +162,11 @@ Select multiple files/directories → One-click upload → View transfer log →
 Select command group → Independent execution → Real-time output → Operation complete
 ```
 
+### Scenario 5: Batch Multi-Server Deployment
+```
+Create batch task → Add sub-tasks (Server A, Server B, ...) → One-click execute → Deploy to all servers
+```
+
 ---
 
 ## Installation
@@ -161,8 +182,10 @@ Search for **"UploadSSHFile"** in the IntelliJ IDEA Plugin Marketplace and click
 3. Click **Test Connection** to verify
 4. Add upload target paths for the server
 5. Select server and path, then click **Upload**
-6. *(Optional)* Create command groups via **SSH Command Config**
-7. *(Optional)* Configure AI models via **AI Settings** for smart validation
+6. *(Optional)* Create batch tasks via **Batch Upload** for multi-server deployment
+7. *(Optional)* Create command groups via **SSH Command Config**
+8. *(Optional)* Configure AI models via **AI Settings** for smart validation
+9. *(Optional)* Use **Import / Export Config** to share or back up settings
 
 ---
 
@@ -172,10 +195,12 @@ Right-click a project file or directory to see the **Upload SSH File** menu with
 
 | Menu Item | Function |
 |:---|:---|
+| Batch Upload | Manage and execute batch upload tasks |
 | Upload File | Open the upload dialog; select server/path/command group and upload |
 | Manage Server Config... | Manage server and upload path configurations |
 | SSH Command Config... | Manage command groups, blacklists, and keyword rules |
 | AI Settings... | Configure AI model parameters (API Key, model selection, etc.) |
+| Import / Export Config... | Export or import all plugin configurations |
 
 ---
 
@@ -242,7 +267,7 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 ---
 
-*Last Updated: 2026-05-25*
+*Last Updated: 2026-05-28*
 
 ---
 
@@ -256,7 +281,7 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 **插件名称**：UploadSSHFile  
 **插件 ID**：`com.openxt.uploadsshfile`  
-**插件版本**：0.0.1  
+**插件版本**：1.0.2  
 **开发者**：Kola  
 **插件类型**：实用工具 (Utility)
 
@@ -289,7 +314,7 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 ### 1. SFTP 文件上传
 
 - **右键一键上传**：在 IDEA 项目视图中，右键点击文件或目录即可上传
-- **多文件/目录支持**：支持单个文件、多个文件、整个目录的上传
+- **多服务器/多文件/目录支持**：支持单个文件、多个文件、整个目录、多服务器的上传
 - **MD5 完整性校验**：上传后自动校验本地与远程文件 MD5，确保传输可靠，校验失败时询问用户
 - **实时进度显示**：显示上传进度、传输速度、已完成文件数等详细信息
 - **密码安全存储**：密码经加密后独立存储于本地加密文件，配置文件本身不保存密码明文
@@ -344,19 +369,35 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 - **关联删除**：删除服务器时自动清理关联路径和命令组
 - **表单校验**：名称唯一性、必填项校验
 
-### 6. 记忆上次选择
+### 6. 批处理上传任务
+
+- **批处理任务管理**：创建、编辑、克隆、删除批处理上传任务
+- **多子任务组合**：每个批处理任务包含多个子任务，各自指定 服务器 + 上传路径 + 文件列表 + 命令组
+- **顺序执行**：子任务按序执行，每个子任务完成上传和命令执行后才进入下一个
+- **实时进度**：显示总体批处理进度、当前子任务状态及各子任务执行结果
+- **一键执行**：从菜单选择批处理任务，一次性运行所有子任务
+
+### 7. 导入导出配置
+
+- **全量配置导出**：将所有配置（服务器、路径、命令组、批处理任务、AI 配置、黑名单、关键词规则）导出为单一 JSON 文件
+- **智能导入**：导入之前导出的配置文件，自动冲突解决
+- **差异预览**：应用前预览导入内容，显示各类别的 新增/更新/跳过 数量
+- **智能合并**：通过专用的逐类合并策略（ServerMerger、PathMerger、CommandConfigMerger、BatchTaskMerger、BlacklistMerger、KeywordRulesMerger、AIConfigMerger 等）将导入配置与现有配置合并
+- **数据可移植**：轻松在不同 IDEA 安装之间迁移配置，或与团队成员共享
+
+### 8. 记忆上次选择
 
 - **智能记忆**：每次上传或命令执行成功后，自动记住当前服务器和命令组
 - **自动恢复**：下次打开上传对话框时，自动选中上次成功的服务器和命令组
 - **容错降级**：若上次的配置已被删除，自动回退到第一个可用选项
 
-### 7. 多语言国际化
+### 9. 多语言国际化
 
 - **8 种语言**：English、中文、Deutsch、Français、Español、日本語、한국어、العربية
 - **参数化文本**：支持 `{0}`、`{1}` 等占位符替换
 - **语言持久化**：语言设置保存在配置文件中，重启后生效
 
-### 8. 统一配置管理
+### 10. 统一配置管理
 
 - **单一配置文件**：所有配置（服务器、路径、命令组、黑名单、AI、语言等）统一存储在 `plugin-config.json`
 - **卸载安全**：配置目录独立于插件目录，卸载后配置保留
@@ -369,7 +410,7 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 | 项目 | 要求 |
 |:---|:---|
 | IDE | IntelliJ IDEA 2025.3.x (Build 253+) |
-| JDK | OpenJDK 17 |
+| JDK | OpenJDK 21 |
 | 操作系统 | Windows 10/11、macOS、Linux |
 
 ---
@@ -396,6 +437,11 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 选择命令组 → 独立执行 → 实时查看输出 → 完成运维操作
 ```
 
+### 场景五：批量多服务器部署
+```
+创建批处理任务 → 添加子任务（服务器A、服务器B、...）→ 一键执行 → 部署至所有服务器
+```
+
 ---
 
 ## 安装指南
@@ -411,8 +457,10 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 3. 点击"测试连接"确保配置正确
 4. 为服务器添加上传目标路径
 5. 选择服务器和路径后点击"Upload"
-6. *(可选)* 通过 **SSH Command Config** 菜单创建命令组
-7. *(可选)* 通过 **AI Settings** 菜单配置 AI 模型，为命令执行加持智能校验
+6. *(可选)* 通过 **Batch Upload** 菜单创建批处理任务，实现多服务器部署
+7. *(可选)* 通过 **SSH Command Config** 菜单创建命令组
+8. *(可选)* 通过 **AI Settings** 菜单配置 AI 模型，为命令执行加持智能校验
+9. *(可选)* 通过 **Import / Export Config** 菜单备份或迁移配置
 
 ---
 
@@ -422,10 +470,12 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 
 | 菜单项 | 功能 |
 |:---|:---|
+| Batch Upload | 管理和执行批处理上传任务 |
 | Upload File | 打开上传对话框，选择服务器/路径/命令组后上传 |
 | Manage Server Config... | 管理服务器和上传路径配置 |
 | SSH Command Config... | 管理命令组、黑名单、关键词规则 |
 | AI Settings... | 配置 AI 模型参数（API Key、模型选型等） |
+| Import / Export Config... | 导入或导出全部插件配置 |
 
 ---
 

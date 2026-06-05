@@ -1,24 +1,26 @@
 package com.openxt.uploadsshfile.sftp;
 
+import com.openxt.uploadsshfile.i18n.LanguageManager;
+
 /**
- * SFTP 错误码
+ * SFTP error codes
  */
 public enum SftpErrorCode {
-    CONNECTION_FAILED("连接失败"),
-    AUTH_FAILED("认证失败"),
-    PATH_NOT_FOUND("路径不存在"),
-    PERMISSION_DENIED("权限不足"),
-    TRANSFER_FAILED("传输失败"),
-    TIMEOUT("连接超时"),
-    UNKNOWN("未知错误");
+    CONNECTION_FAILED("sftp.error.connectionFailed"),
+    AUTH_FAILED("sftp.error.authFailed"),
+    PATH_NOT_FOUND("sftp.error.pathNotFound"),
+    PERMISSION_DENIED("sftp.error.permissionDenied"),
+    TRANSFER_FAILED("sftp.error.transferFailed"),
+    TIMEOUT("sftp.error.timeout"),
+    UNKNOWN("sftp.error.unknown");
 
-    private final String description;
+    private final String i18nKey;
 
-    SftpErrorCode(String description) {
-        this.description = description;
+    SftpErrorCode(String i18nKey) {
+        this.i18nKey = i18nKey;
     }
 
     public String getDescription() {
-        return description;
+        return LanguageManager.getInstance().get(i18nKey);
     }
 }

@@ -1,5 +1,6 @@
 package com.openxt.uploadsshfile.model;
 
+import com.openxt.uploadsshfile.batch.BatchTask;
 import com.openxt.uploadsshfile.config.PathConfig;
 import com.openxt.uploadsshfile.config.ServerConfig;
 
@@ -50,6 +51,12 @@ public class UnifiedPluginConfig {
 
     /** 有返回命令列表（按操作系统分类） */
     private CommandOutputConfig hasOutputCommands;
+
+    /** 批处理任务列表（三期新增） */
+    private List<BatchTask> batchTasks;
+
+    /** 是否启用日志输出 */
+    private boolean logEnabled = false;
     
     public UnifiedPluginConfig() {
         this.servers = new ArrayList<>();
@@ -62,6 +69,8 @@ public class UnifiedPluginConfig {
         // 有返回命令列表需要单独初始化（CommandOutputConfig 默认是无返回命令）
         this.hasOutputCommands = new CommandOutputConfig();
         initDefaultHasOutputCommands();
+
+        this.batchTasks = new ArrayList<>();
     }
     
     /**
@@ -223,6 +232,23 @@ public class UnifiedPluginConfig {
     
     public void setHasOutputCommands(CommandOutputConfig hasOutputCommands) {
         this.hasOutputCommands = hasOutputCommands;
+    }
+
+    public List<BatchTask> getBatchTasks() {
+        if (batchTasks == null) batchTasks = new ArrayList<>();
+        return batchTasks;
+    }
+
+    public void setBatchTasks(List<BatchTask> batchTasks) {
+        this.batchTasks = batchTasks;
+    }
+
+    public boolean isLogEnabled() {
+        return logEnabled;
+    }
+
+    public void setLogEnabled(boolean logEnabled) {
+        this.logEnabled = logEnabled;
     }
     
     // ========== 内部类 ==========

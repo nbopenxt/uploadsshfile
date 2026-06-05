@@ -1,9 +1,11 @@
 package com.openxt.uploadsshfile.persistence;
 
 import com.openxt.uploadsshfile.util.Logger;
+import com.openxt.uploadsshfile.util.PluginPathManager;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -57,23 +59,65 @@ public class SecureStorage {
         Logger.debug("SecureStorage", "delete() completed");
     }
 
+    /**
+     * 加载所有密码（加密形式），用于导入回滚时备份。
+     * @return key → 加密后的 Base64 字符串
+     */
+    public Map<String, String> loadAll() {
+        return fallbackLoad();
+    }
+
+    /**
+     * 全量恢复密码数据，用于导入回滚。
+     * @param data key → 加密后的 Base64 字符串
+     */
+    public void restore(Map<String, String> data) {
+        File file = getStorageFile();
+        file.getParentFile().mkdirs();
+        try (Writer writer = new OutputStreamWriter(
+                new FileOutputStream(file), StandardCharsets.UTF_8)) {
+            for (Map.Entry<String, String> entry : data.entrySet()) {
+                writer.write(entry.getKey() + "=" + entry.getValue() + "\n");
+            }
+        } catch (IOException e) {
+            Logger.debug("SecureStorage", "restore() failed: " + e.getMessage());
+        }
+    }
+
     // ==================== 加密文件存储 ====================
 
-    private static final File FALLBACK_FILE = new File(
-            System.getProperty("user.home") + "/.uploadsshfile/secure.dat");
+    /**
+     * 获取密码加密文件路径（新位置）。
+     * 存储在 {IDEA_CONFIG}/uploadsshfile/secure.dat，与 plugin-config.json 同目录。
+     */
+    private File getStorageFile() {
+        PluginPathManager pathManager = PluginPathManager.getInstance();
+        Path configPath = pathManager.ensureDirectory(pathManager.getConfigPath());
+        return new File(configPath.toFile(), "secure.dat");
+    }
+
+    /**
+     * 获取旧版密码文件路径（兼容性读取）。
+     * 旧版位置：~/.uploadsshfile/secure.dat
+     */
+    private File getOldStorageFile() {
+        return new File(System.getProperty("user.home") + "/.uploadsshfile/secure.dat");
+    }
 
     private void fallbackStore(String key, String password) {
-        FALLBACK_FILE.getParentFile().mkdirs();
+        File file = getStorageFile();
+        file.getParentFile().mkdirs();
         Map<String, String> map = fallbackLoad();
         map.put(key, encrypt(password));
         try (Writer writer = new OutputStreamWriter(
-                new FileOutputStream(FALLBACK_FILE), StandardCharsets.UTF_8)) {
+                new FileOutputStream(file), StandardCharsets.UTF_8)) {
             for (Map.Entry<String, String> entry : map.entrySet()) {
                 writer.write(entry.getKey() + "=" + entry.getValue() + "\n");
             }
         } catch (IOException e) {
             // 忽略
         }
+        clearOldFileIfExists();
     }
 
     private String fallbackRetrieve(String key) {
@@ -88,25 +132,48 @@ public class SecureStorage {
     private void fallbackDelete(String key) {
         Map<String, String> map = fallbackLoad();
         if (map.remove(key) != null) {
+            File file = getStorageFile();
             // 重新写入文件
             try (Writer writer = new OutputStreamWriter(
-                    new FileOutputStream(FALLBACK_FILE), StandardCharsets.UTF_8)) {
+                    new FileOutputStream(file), StandardCharsets.UTF_8)) {
                 for (Map.Entry<String, String> entry : map.entrySet()) {
                     writer.write(entry.getKey() + "=" + entry.getValue() + "\n");
                 }
             } catch (IOException e) {
                 // 忽略
             }
+            clearOldFileIfExists();
         }
     }
 
+    /**
+     * 读取密码数据，兼容新旧两个位置。
+     * 先读旧路径（作为基础），再读新路径（覆盖同名 key），实现无缝迁移。
+     */
     private Map<String, String> fallbackLoad() {
         Map<String, String> map = new HashMap<>();
-        if (!FALLBACK_FILE.exists()) {
-            return map;
+        File oldFile = getOldStorageFile();
+        File newFile = getStorageFile();
+
+        // 1. 先读旧路径（兼容旧版本数据）
+        if (oldFile.exists()) {
+            loadFromFile(oldFile, map);
         }
+
+        // 2. 再读新路径（同名 key 以新路径值为准）
+        if (newFile.exists()) {
+            loadFromFile(newFile, map);
+        }
+
+        return map;
+    }
+
+    /**
+     * 从文件逐行读取 key=value 格式的密码数据。
+     */
+    private void loadFromFile(File file, Map<String, String> map) {
         try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new FileInputStream(FALLBACK_FILE), StandardCharsets.UTF_8))) {
+                new InputStreamReader(new FileInputStream(file), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 int idx = line.indexOf('=');
@@ -117,7 +184,18 @@ public class SecureStorage {
         } catch (IOException e) {
             // 忽略
         }
-        return map;
+    }
+
+    /**
+     * 清理旧版密码文件。写入新位置后，自动删除旧文件，确保数据只存一份。
+     */
+    private void clearOldFileIfExists() {
+        File oldFile = getOldStorageFile();
+        if (oldFile.exists()) {
+            if (oldFile.delete()) {
+                Logger.debug("SecureStorage", "Removed old password file: " + oldFile.getAbsolutePath());
+            }
+        }
     }
 
     private String encrypt(String password) {
