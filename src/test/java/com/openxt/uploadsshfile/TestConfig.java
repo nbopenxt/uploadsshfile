@@ -1,4 +1,4 @@
-package com.openxt.uploadsshfile;
+﻿package com.openxt.uploadsshfile;
 
 /**
  * 测试配置中心 - 统一管理所有测试服务器的连接信息。
@@ -32,7 +32,7 @@ public final class TestConfig {
     public static final int LINUX_PORT = 22;
 
     /** SSH 登录用户名（如 "root"） */
-    public static final String LINUX_USER = "root";
+    public static final String LINUX_USER = "";
 
     /** SSH 登录密码 */
     public static final String LINUX_PASSWORD = "";
@@ -70,7 +70,7 @@ public final class TestConfig {
     public static final int WINDOWS_C_PORT = 22;
 
     /** SSH 登录用户名（如 "administrator"） */
-    public static final String WINDOWS_C_USER = "administrator";
+    public static final String WINDOWS_C_USER = "";
 
     /** SSH 登录密码 */
     public static final String WINDOWS_C_PASSWORD = "";
