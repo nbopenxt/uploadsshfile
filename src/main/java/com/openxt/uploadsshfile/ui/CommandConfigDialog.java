@@ -831,8 +831,25 @@ public class CommandConfigDialog extends DialogWrapper {
             if (selected != null) {
                 StringBuilder sb = new StringBuilder();
                 sb.append("=== ").append(selected.getName()).append(" ===\n\n");
-                sb.append(lang.get("commandGroup.details.server")).append(selected.getServerId()).append("\n");
-                sb.append(lang.get("commandGroup.details.path")).append(selected.getPathId()).append("\n");
+                String serverId = selected.getServerId();
+                String serverDisplay = serverId; // 默认显示ID，避免空指针
+                if (serverId != null && !serverId.isEmpty()) {
+                    ServerConfig server = store.getServer(serverId);
+                    if (server != null && server.getName() != null && !server.getName().isEmpty()) {
+                        serverDisplay = server.getName(); // 显示真实服务器名称
+                    }
+                }
+                sb.append(lang.get("commandGroup.details.server")).append(serverDisplay).append("\n");
+                String pathId = selected.getPathId();
+                String pathDisplay = pathId; // 默认显示ID，避免空指针
+                if (pathId != null && !pathId.isEmpty()) {
+                    List<PathConfig> paths = store.getPathsByServer(serverId);
+                    PathConfig path= paths.stream().filter(p -> p.getId().equals(pathId)).findFirst().orElse(null);
+                    if (path != null && path.getRemotePath() != null && !path.getRemotePath().isEmpty()) {
+                        pathDisplay = path.getRemotePath(); // 显示真实路径
+                    }
+                }
+                sb.append(lang.get("commandGroup.details.path")).append(pathDisplay).append("\n");
                 sb.append(lang.get("commandGroup.details.timing")).append(selected.getExecuteTiming()).append("\n\n");
                 sb.append(lang.get("commandGroup.details.commands")).append("\n");
                 for (CommandItem item : selected.getCommands()) {

@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.openxt"
-version = "1.0.2"
+version = "1.0.3"
 
 repositories {
     mavenCentral()
@@ -92,7 +92,7 @@ tasks {
 
     patchPluginXml {
         sinceBuild.set("253")
-        untilBuild.set("254.*")
+        untilBuild.set("299.*")
     }
     
     // 禁用 instrumentCode - 避免访问外网下载 java-compiler-ant-tasks
