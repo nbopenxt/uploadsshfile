@@ -2,7 +2,7 @@
     <id>com.openxt.uploadsshfile</id>
     <name>Upload SSH File</name>
     <vendor>openxt</vendor>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <idea-version since-build="253"/>
     <description>Upload files via SSH plugin for IntelliJ IDEA</description>
     <depends>com.intellij.modules.platform</depends>
