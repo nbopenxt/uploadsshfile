@@ -1,5 +1,6 @@
 package com.openxt.uploadsshfile.ui;
 
+import com.intellij.openapi.application.ApplicationManager;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
 import com.openxt.uploadsshfile.model.CommandResult;
 import com.openxt.uploadsshfile.model.ExecutionSummary;
@@ -400,16 +401,13 @@ public class ExecutionProgressDialog extends JDialog implements ExecutionListene
         final boolean[] result = new boolean[1];
         
         try {
-            SwingUtilities.invokeAndWait(() -> {
+            ApplicationManager.getApplication().invokeAndWait(() -> {
                 TimeoutPromptDialog dialog = new TimeoutPromptDialog((Frame) SwingUtilities.getWindowAncestor(this), command);
                 dialog.updateElapsedTime(elapsedMs);
                 dialog.updateOutput(currentOutput.toString());
                 result[0] = dialog.showAndWait();
             });
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
-        } catch (java.lang.reflect.InvocationTargetException e) {
+        } catch (Exception e) {
             return false;
         }
         

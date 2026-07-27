@@ -99,8 +99,7 @@ public class UploadAction extends AnAction {
 
         // 过滤有效的文件（使用 VirtualFile 的 exists 检查）
         List<String> validPaths = new ArrayList<>();
-        DataContext dataContext = e.getDataContext();
-        VirtualFile[] virtualFiles = LangDataKeys.VIRTUAL_FILE_ARRAY.getData(dataContext);
+        VirtualFile[] virtualFiles = e.getData(LangDataKeys.VIRTUAL_FILE_ARRAY);
 
         if (virtualFiles != null) {
             Logger.debug("UploadAction", "Virtual files count: " + virtualFiles.length);
@@ -131,10 +130,7 @@ public class UploadAction extends AnAction {
             }
         });
         
-        uploadDialog.show();
-        Logger.debug("UploadAction", "UploadDialog closed, confirmed=" + uploadDialog.isConfirmed());
-
-        if (!uploadDialog.isConfirmed()) {
+        if (!uploadDialog.showAndGet()) {
             return;
         }
 
@@ -298,8 +294,7 @@ public class UploadAction extends AnAction {
         List<String> paths = new ArrayList<>();
 
         // 获取选中文件
-        DataContext dataContext = e.getDataContext();
-        VirtualFile[] virtualFiles = LangDataKeys.VIRTUAL_FILE_ARRAY.getData(dataContext);
+        VirtualFile[] virtualFiles = e.getData(LangDataKeys.VIRTUAL_FILE_ARRAY);
 
         if (virtualFiles != null) {
             for (VirtualFile vf : virtualFiles) {

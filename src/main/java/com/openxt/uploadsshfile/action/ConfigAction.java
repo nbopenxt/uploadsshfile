@@ -35,6 +35,6 @@ public class ConfigAction extends AnAction {
 
         // 显示配置对话框
         ConfigDialog dialog = new ConfigDialog(project);
-        dialog.show();
+        dialog.setVisible(true);
     }
 }

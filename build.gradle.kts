@@ -3,11 +3,11 @@ import java.nio.file.StandardCopyOption
 
 plugins {
     java
-    id("org.jetbrains.intellij.platform") version "2.15.0"
+    id("org.jetbrains.intellij.platform") version "2.18.1"
 }
 
 group = "com.openxt"
-version = "1.0.3"
+version = "1.0.4"
 
 repositories {
     mavenCentral()
@@ -92,7 +92,6 @@ tasks {
 
     patchPluginXml {
         sinceBuild.set("253")
-        untilBuild.set("299.*")
     }
     
     // 禁用 instrumentCode - 避免访问外网下载 java-compiler-ant-tasks
@@ -191,6 +190,15 @@ tasks.register("customPackagePlugin") {
         
         println("Package created: ${zipFile.name}")
         println("Size: ${zipFile.length()} bytes")
+        
+        // 5. 清理中间产物（-base.jar / -instrumented.jar）
+        val libsDir = buildDir.resolve("libs")
+        libsDir.listFiles()
+            ?.filter { it.name.endsWith("-base.jar") || it.name.endsWith("-instrumented.jar") }
+            ?.forEach { jar ->
+                jar.delete()
+                println("Cleaned: ${jar.name}")
+            }
     }
 }
 
