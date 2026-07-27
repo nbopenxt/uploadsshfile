@@ -3,6 +3,7 @@ package com.openxt.uploadsshfile.action;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.wm.WindowManager;
 import com.openxt.uploadsshfile.ai.AICommandChecker;
 import com.openxt.uploadsshfile.ai.AIResultChecker;
 import com.openxt.uploadsshfile.config.PathConfig;
@@ -21,7 +22,7 @@ import com.openxt.uploadsshfile.validation.KeywordMatcher;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import javax.swing.*;
+import javax.swing.JOptionPane;
 import java.awt.Frame;
 
 /**
@@ -73,8 +74,7 @@ public class ExecuteCommandAction extends AnAction {
         SshConnection connection = SshConnection.fromServerConfig(serverConfig, password);
         
         // 创建进度对话框
-        Frame mainFrame = (Frame) SwingUtilities.getWindowAncestor(
-            project.getComponent(JComponent.class));
+        Frame mainFrame = WindowManager.getInstance().getFrame(project);
         ExecutionProgressDialog dialog = new ExecutionProgressDialog(mainFrame);
         
         // 创建服务实例
@@ -164,7 +164,7 @@ public class ExecuteCommandAction extends AnAction {
     
     private void showError(Project project, String message) {
         JOptionPane.showMessageDialog(
-            project.getComponent(JComponent.class),
+            WindowManager.getInstance().getFrame(project),
             message,
             lang.get("action.error.title"),
             JOptionPane.ERROR_MESSAGE

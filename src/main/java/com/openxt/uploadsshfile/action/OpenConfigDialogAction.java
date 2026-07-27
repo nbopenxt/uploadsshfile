@@ -32,9 +32,7 @@ public class OpenConfigDialogAction extends AnAction {
         if (project == null) return;
         
         CommandConfigDialog dialog = new CommandConfigDialog();
-        dialog.show();
-        
-        if (dialog.isOK()) {
+        if (dialog.showAndGet()) {
             // 配置已保存
         }
     }

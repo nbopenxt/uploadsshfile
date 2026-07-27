@@ -30,9 +30,7 @@ public class OpenAIConfigDialogAction extends AnAction {
         if (project == null) return;
         
         AIConfigDialog dialog = new AIConfigDialog();
-        dialog.show();
-        
-        if (dialog.isOK()) {
+        if (dialog.showAndGet()) {
             // 配置已保存
         }
     }

@@ -2,7 +2,6 @@ package com.openxt.uploadsshfile.action;
 
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.actionSystem.DataContext;
 import com.intellij.openapi.actionSystem.LangDataKeys;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -39,8 +38,7 @@ public class BatchUploadAction extends AnAction {
         if (project == null) return;
 
         List<String> selectedPaths = new ArrayList<>();
-        DataContext dataContext = e.getDataContext();
-        VirtualFile[] virtualFiles = LangDataKeys.VIRTUAL_FILE_ARRAY.getData(dataContext);
+        VirtualFile[] virtualFiles = e.getData(LangDataKeys.VIRTUAL_FILE_ARRAY);
         if (virtualFiles != null) {
             for (VirtualFile vf : virtualFiles) {
                 if (vf.exists()) {

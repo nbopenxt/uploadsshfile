@@ -1,10 +1,34 @@
 <idea-plugin>
     <id>com.openxt.uploadsshfile</id>
     <name>Upload SSH File</name>
-    <vendor>openxt</vendor>
-    <version>1.0.3</version>
-    <idea-version since-build="253"/>
-    <description>Upload files via SSH plugin for IntelliJ IDEA</description>
+    <version>1.0.4</version>
+    <vendor email="support@openxt.com" url="https://github.com/openxt/uploadsshfile">openxt</vendor>
+    <idea-version since-build="253" until-build="262.*"/>
+    <description><![CDATA[
+        Upload files/directories to remote servers via SSH SFTP.
+        <ul>
+            <li>Right-click file/directory → Upload SSH File</li>
+            <li>Supports multi-file and batch upload</li>
+            <li>MD5 checksum verification</li>
+            <li>Post-upload SSH command execution</li>
+            <li>Server and path configuration management</li>
+        </ul>
+    ]]></description>
+    <change-notes><![CDATA[
+        <b>1.0.4</b>
+        <ul>
+            <li>修复批处理上传进度条精度与子任务重置问题</li>
+            <li>修复 marketplace 验证 API 弃用警告</li>
+            <li>构建后自动清理中间产物</li>
+        </ul>
+        <b>1.0.3</b>
+        <ul>
+            <li>Fix batch upload progress calculation</li>
+            <li>Fix i18n missing keys</li>
+            <li>Update deprecated API usages</li>
+            <li>Fix plugin configuration defect</li>
+        </ul>
+    ]]></change-notes>
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.java</depends>
 
