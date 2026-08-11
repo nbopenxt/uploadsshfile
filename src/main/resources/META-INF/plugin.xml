@@ -1,8 +1,8 @@
 <idea-plugin>
     <id>com.openxt.uploadsshfile</id>
     <name>Upload SSH File</name>
-    <version>1.0.4</version>
-    <vendor email="support@openxt.com" url="https://github.com/openxt/uploadsshfile">openxt</vendor>
+    <version>1.0.5</version>
+    <vendor email="support@openxt.com" url="https://github.com/nbopenxt/uploadsshfile">openxt</vendor>
     <idea-version since-build="253" until-build="262.*"/>
     <description><![CDATA[
         Upload files/directories to remote servers via SSH SFTP.
@@ -15,11 +15,16 @@
         </ul>
     ]]></description>
     <change-notes><![CDATA[
+        <b>1.0.5</b>
+        <ul>
+            <li>Add Language submenu in right-click menu with checkmark for current language</li>
+            <li>Auto-detect IDE language on first launch, fallback to English if unsupported</li>
+        </ul>
         <b>1.0.4</b>
         <ul>
-            <li>修复批处理上传进度条精度与子任务重置问题</li>
-            <li>修复 marketplace 验证 API 弃用警告</li>
-            <li>构建后自动清理中间产物</li>
+            <li>Fix batch upload progress bar precision and sub-task reset issue</li>
+            <li>Fix marketplace verification API deprecation warnings</li>
+            <li>Auto-clean intermediate build artifacts after packaging</li>
         </ul>
         <b>1.0.3</b>
         <ul>
@@ -64,6 +69,14 @@
             <!-- 导入导出配置子菜单 -->
             <action id="UploadSSHFile.ImportExportConfig"
                     class="com.openxt.uploadsshfile.action.ImportExportConfigAction"/>
+            
+            <!-- 分隔线 -->
+            <separator/>
+            
+            <!-- 语言选择子菜单（动态 ToggleAction，当前语言带勾选标记） -->
+            <group id="UploadSSHFile.LanguageMenu"
+                   class="com.openxt.uploadsshfile.action.LanguageMenuGroup"
+                   popup="true"/>
         </group>
     </actions>
 </idea-plugin>

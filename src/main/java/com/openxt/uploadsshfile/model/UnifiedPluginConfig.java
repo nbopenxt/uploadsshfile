@@ -34,8 +34,8 @@ public class UnifiedPluginConfig {
     /** 命令配置列表 */
     private List<CommandConfig> commandConfigs;
     
-    /** 语言设置 */
-    private String language = "en";
+    /** 语言设置（空字符串表示未设置，首次启动将自动检测 IDE 语言） */
+    private String language = "";
     
     /** 上次成功上传/执行的服务器ID（记忆上次选择） */
     private String lastSuccessfulServerId;

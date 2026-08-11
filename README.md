@@ -6,7 +6,7 @@
 
 **Plugin Name**: UploadSSHFile  
 **Plugin ID**: `com.openxt.uploadsshfile`  
-**Version**: 1.0.2  
+**Version**: 1.0.5  
 **Developer**: Kola  
 **Category**: Utility
 
@@ -119,6 +119,9 @@ Pattern-matches commands using built-in regex rules to identify common risky ope
 ### 9. Internationalization
 
 - **8 languages**: English, 中文, Deutsch, Français, Español, 日本語, 한국어, العربية
+- **Auto-detect IDE language**: On first launch, automatically matches the IDE's display language; falls back to English if unsupported
+- **Language menu**: Switch languages directly from the right-click menu with a checkmark indicating the current selection (no need to open server settings)
+- **Server settings language**: Language setting also remains available in the server configuration dialog
 - **Parameterized text**: Supports `{0}`, `{1}` placeholder substitution
 - **Persistent language setting**: Language preference saved in config file, takes effect after restart
 
@@ -201,6 +204,7 @@ Right-click a project file or directory to see the **Upload SSH File** menu with
 | SSH Command Config... | Manage command groups, blacklists, and keyword rules |
 | AI Settings... | Configure AI model parameters (API Key, model selection, etc.) |
 | Import / Export Config... | Export or import all plugin configurations |
+| Language | Switch plugin display language (checkmark on current selection) |
 
 ---
 
@@ -267,7 +271,7 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 ---
 
-*Last Updated: 2026-05-28*
+*Last Updated: 2026-08-11*
 
 ---
 
@@ -281,7 +285,7 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 **插件名称**：UploadSSHFile  
 **插件 ID**：`com.openxt.uploadsshfile`  
-**插件版本**：1.0.2  
+**插件版本**：1.0.5  
 **开发者**：Kola  
 **插件类型**：实用工具 (Utility)
 
@@ -394,6 +398,9 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 ### 9. 多语言国际化
 
 - **8 种语言**：English、中文、Deutsch、Français、Español、日本語、한국어、العربية
+- **自动检测 IDE 语言**：首次启动时自动匹配 IDE 的显示语言，不匹配则默认英语
+- **右键菜单切换**：可直接在右键菜单中切换语言（当前语言前有勾选标记），无需进入服务器设置
+- **服务器设置语言**：语言设置仍然保留在服务器配置对话框中
 - **参数化文本**：支持 `{0}`、`{1}` 等占位符替换
 - **语言持久化**：语言设置保存在配置文件中，重启后生效
 
@@ -476,6 +483,7 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 | SSH Command Config... | 管理命令组、黑名单、关键词规则 |
 | AI Settings... | 配置 AI 模型参数（API Key、模型选型等） |
 | Import / Export Config... | 导入或导出全部插件配置 |
+| Language | 切换插件显示语言（当前语言前有勾选标记） |
 
 ---
 

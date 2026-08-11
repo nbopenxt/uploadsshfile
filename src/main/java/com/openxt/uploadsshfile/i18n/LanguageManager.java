@@ -119,13 +119,30 @@ public class LanguageManager {
             UnifiedConfigStore configStore = UnifiedConfigStore.getInstance();
             currentLanguage = configStore.getConfig().getLanguage();
             if (currentLanguage == null || currentLanguage.isEmpty()) {
-                currentLanguage = "en";
+                // 首次启动：自动检测 IDE 语言
+                currentLanguage = detectIdeLanguage();
+                Logger.debug("LanguageManager", "Auto-detected IDE language: " + currentLanguage);
             }
             Logger.debug("LanguageManager", "Loaded language preference: " + currentLanguage);
         } catch (Exception e) {
             Logger.error("LanguageManager", "Failed to load language preference", e);
             currentLanguage = "en";
         }
+    }
+    
+    /**
+     * 自动检测 IDE 语言，匹配预设支持的语言
+     * 匹配成功返回对应语言代码，失败返回 "en"
+     */
+    private String detectIdeLanguage() {
+        String ideLang = Locale.getDefault().getLanguage();
+        Logger.debug("LanguageManager", "IDE locale language: " + ideLang);
+        for (LanguageInfo info : SUPPORTED_LANGUAGES) {
+            if (info.code.equals(ideLang)) {
+                return info.code;
+            }
+        }
+        return "en";
     }
     
     /**
