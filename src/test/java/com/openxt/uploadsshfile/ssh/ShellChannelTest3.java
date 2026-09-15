@@ -41,7 +41,7 @@ public class ShellChannelTest3 {
 
     /**
      * 测试 Linux 服务器
-     * 配置: REDACTED-IP, /home/temp, ./copyfile.sh
+     * 配置: 10.0.0.1.example, /home/temp, ./copyfile.sh
      */
     private static void testLinuxServer() {
         System.out.println("┌─────────────────────────────────────────────────────────────┐");
@@ -174,7 +174,7 @@ public class ShellChannelTest3 {
 
     /**
      * 测试 Windows 服务器
-     * 配置: REDACTED-IP, e:/temp, copyfile.bat
+     * 配置: 192.168.0.1.example, e:/temp, copyfile.bat
      */
     private static void testWindowsServer() {
         System.out.println("┌─────────────────────────────────────────────────────────────┐");

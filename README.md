@@ -6,7 +6,7 @@
 
 **Plugin Name**: UploadSSHFile  
 **Plugin ID**: `com.openxt.uploadsshfile`  
-**Version**: 1.0.5  
+**Version**: 1.0.6  
 **Developer**: Kola  
 **Category**: Utility
 
@@ -15,16 +15,24 @@
 ## Build from Source
 
 ### Prerequisites
-- **JDK 21** (set `JAVA_HOME` or configure in `gradle.properties`)
-- **IntelliJ IDEA 2025.3.x** (Build 253+)
+- **JDK 21** (path configured via `org.gradle.java.home` in `gradle.properties`)
+- **Gradle 9.4.1** (path configured via `org.gradle.home` in `gradle.properties`)
+- A local **IntelliJ IDEA 2025.3.x (Build 253+)** installation — `build.gradle.kts` resolves the platform and its bundled jars from `<YOUR_IDEA_INSTALL_PATH>`
 
 ### Steps
 1. Clone the repository
-2. Open with IntelliJ IDEA
-3. IDEA will auto-import the Gradle project and download Gradle 9.4.1
-4. Run `./gradlew build` to compile
+2. Build with your local Gradle: `gradle buildPlugin`
+3. Artifacts land in `build/distributions/`:
+   - `uploadsshfile-<version>.zip` — standard archive, this is the one to install / upload to the Marketplace
+   - `uploadsshfile-<version>-store.zip` — 7z store-mode package for offline distribution
+4. Unit tests (JUnit 4): `gradle test`
 
-> **Note**: If you need to customize Gradle home or JDK path, edit `gradle.properties`.
+> **Note**: The bundled wrapper `./gradlew` does **not** work out of the box — its
+> `distributionUrl` in `gradle/wrapper/gradle-wrapper.properties` points at an unpacked
+> directory (`https://services.gradle.org/distributions/gradle-9.4.1-bin.zip`) instead of a zip, so the wrapper fails with
+> "no valid zip file". Invoke a local Gradle directly as shown above, or fix
+> `distributionUrl` to point to a real Gradle distribution zip. Also adapt the
+> Gradle/JDK/IDEA paths in `gradle.properties` and `build.gradle.kts` to your machine.
 
 ---
 
@@ -285,7 +293,7 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 **插件名称**：UploadSSHFile  
 **插件 ID**：`com.openxt.uploadsshfile`  
-**插件版本**：1.0.5  
+**插件版本**：1.0.6  
 **开发者**：Kola  
 **插件类型**：实用工具 (Utility)
 
@@ -294,16 +302,23 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 ## 从源码构建
 
 ### 前置条件
-- **JDK 21**（设置 `JAVA_HOME` 或在 `gradle.properties` 中配置）
-- **IntelliJ IDEA 2025.3.x**（Build 253+）
+- **JDK 21**（路径在 `gradle.properties` 的 `org.gradle.java.home` 中配置）
+- **Gradle 9.4.1**（路径在 `gradle.properties` 的 `org.gradle.home` 中配置）
+- 本机 **IntelliJ IDEA 2025.3.x（Build 253+）**安装目录 —— `build.gradle.kts` 从 `<YOUR_IDEA_INSTALL_PATH>` 解析平台及其内置 jar
 
 ### 构建步骤
 1. Clone 仓库
-2. 使用 IntelliJ IDEA 打开项目
-3. IDEA 将自动导入 Gradle 项目并下载 Gradle 9.4.1
-4. 执行 `./gradlew build` 编译
+2. 用本机 Gradle 构建：`gradle buildPlugin`
+3. 产物位于 `build/distributions/`：
+   - `uploadsshfile-<version>.zip` —— 标准包，用于安装 / 上传 JetBrains Marketplace
+   - `uploadsshfile-<version>-store.zip` —— 7z 存储模式包，供内网离线分发
+4. 单元测试（JUnit 4）：`gradle test`
 
-> **注意**：如需自定义 Gradle 主目录或 JDK 路径，请编辑 `gradle.properties`。
+> **注意**：自带的 `./gradlew` 开箱**不可用** —— `gradle/wrapper/gradle-wrapper.properties`
+> 中 `distributionUrl` 指向的是解压目录（`https://services.gradle.org/distributions/gradle-9.4.1-bin.zip`）而非 zip，wrapper 会报
+> "no valid zip file"。请按上面方式直接调用本机 Gradle，或将 `distributionUrl` 改为指向真实的
+> Gradle 发行版 zip。另请按自己机器的实际路径修改 `gradle.properties` 与 `build.gradle.kts`
+> 中的 Gradle/JDK/IDEA 路径。
 
 ---
 

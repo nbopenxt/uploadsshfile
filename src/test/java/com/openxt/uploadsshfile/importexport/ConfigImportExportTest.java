@@ -62,7 +62,7 @@ public class ConfigImportExportTest {
         // 添加服务器
         ServerConfig server = new ServerConfig();
         server.setName("Test Server");
-        server.setHost("192.168.1.1");
+        server.setHost("192.168.0.1.example");
         server.setPort(22);
         server.setUsername("root");
         server.setOsType("linux");

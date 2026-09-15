@@ -78,9 +78,9 @@ public class SshCommandService {
     
     /** 允许连接的主机白名单（请在需要时填写实际 IP 地址） */
     private static final Set<String> ALLOWED_HOSTS = new HashSet<>(Arrays.asList(
-            // "REDACTED-IP",
-            // "REDACTED-IP",
-            // "REDACTED-IP"
+            // "10.0.0.1.example",
+            // "192.168.0.1.example",
+            // "10.0.0.1.example"
     ));
     
     /** 

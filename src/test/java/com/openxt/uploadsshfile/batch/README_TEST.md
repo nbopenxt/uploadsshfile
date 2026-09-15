@@ -24,8 +24,11 @@
 
 ### 方式1：使用 Gradle 任务（推荐）
 
+> 注意：项目自带 wrapper（`./gradlew`）不可用（distributionUrl 指向解压目录），
+> 请直接调用本机 Gradle 9.4.1。
+
 ```bash
-./gradlew runBatchProgressSimulationTest
+gradle runBatchProgressSimulationTest
 ```
 
 或在 IDEA 中：
@@ -43,7 +46,7 @@
 ### 方式3：使用 JUnit 运行器
 
 ```bash
-./gradlew test --tests "com.openxt.uploadsshfile.batch.BatchProgressSimulationTest"
+gradle test --tests "com.openxt.uploadsshfile.batch.BatchProgressSimulationTest"
 ```
 
 ## 测试场景

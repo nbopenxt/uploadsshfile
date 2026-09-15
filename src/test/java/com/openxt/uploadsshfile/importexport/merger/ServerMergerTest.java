@@ -27,7 +27,7 @@ public class ServerMergerTest {
         ServerConfig expServer = new ServerConfig();
         expServer.setId("old-uuid-123");
         expServer.setName("My Server");
-        expServer.setHost("192.168.1.100");
+        expServer.setHost("192.168.0.1.example");
         expServer.setPort(22);
         expServer.setUsername("admin");
         expServer.setPassword("encrypted-pass-base64");
@@ -39,7 +39,7 @@ public class ServerMergerTest {
         ServerConfig curServer = new ServerConfig();
         String curId = curServer.getId(); // 新 UUID
         curServer.setName("Old Name");
-        curServer.setHost("192.168.1.100");
+        curServer.setHost("192.168.0.1.example");
         curServer.setPort(22);
         curServer.setUsername("olduser");
         curServer.setOsType("windows");
@@ -73,7 +73,7 @@ public class ServerMergerTest {
         ServerConfig expServer = new ServerConfig();
         expServer.setId("exp-id-new");
         expServer.setName("New Server");
-        expServer.setHost("10.0.0.1");
+        expServer.setHost("10.0.0.1.example");
         expServer.setPort(2222);
         expServer.setUsername("root");
         expServer.setPassword("enc-pass");
@@ -83,7 +83,7 @@ public class ServerMergerTest {
         List<ServerConfig> current = new ArrayList<>();
         ServerConfig curServer = new ServerConfig();
         curServer.setId("cur-existing");
-        curServer.setHost("192.168.1.1");
+        curServer.setHost("192.168.0.1.example");
         curServer.setPort(22);
         curServer.setUsername("other");
         current.add(curServer);
@@ -95,13 +95,13 @@ public class ServerMergerTest {
 
         // 原有服务器保留
         assertEquals("cur-existing", result.get(0).getId());
-        assertEquals("192.168.1.1", result.get(0).getHost());
+        assertEquals("192.168.0.1.example", result.get(0).getHost());
 
         // 新服务器已添加
         ServerConfig added = result.get(1);
         assertNotEquals("exp-id-new", added.getId()); // 新 UUID
         assertEquals("New Server", added.getName());
-        assertEquals("10.0.0.1", added.getHost());
+        assertEquals("10.0.0.1.example", added.getHost());
         assertEquals(2222, added.getPort());
 
         // 验证映射
@@ -120,7 +120,7 @@ public class ServerMergerTest {
         List<ServerConfig> exported = new ArrayList<>();
         ServerConfig expServer = new ServerConfig();
         expServer.setId("exp-1");
-        expServer.setHost("10.0.0.1");
+        expServer.setHost("10.0.0.1.example");
         expServer.setPort(2222);
         expServer.setName("SSH Port 2222");
         expServer.setPassword("pwd1");
@@ -129,7 +129,7 @@ public class ServerMergerTest {
         List<ServerConfig> current = new ArrayList<>();
         ServerConfig curServer = new ServerConfig();
         curServer.setId("cur-1");
-        curServer.setHost("10.0.0.1");
+        curServer.setHost("10.0.0.1.example");
         curServer.setPort(22); // 不同端口
         current.add(curServer);
 
@@ -146,16 +146,16 @@ public class ServerMergerTest {
         RemapContext ctx = new RemapContext();
 
         List<ServerConfig> exported = new ArrayList<>();
-        ServerConfig s1 = createExportedServer("exp-1", "srv1", "10.0.0.1", 22, "pass1");
-        ServerConfig s2 = createExportedServer("exp-2", "srv2", "10.0.0.2", 22, "pass2");
-        ServerConfig s3 = createExportedServer("exp-3", "srv3", "10.0.0.3", 22, "pass3");
+        ServerConfig s1 = createExportedServer("exp-1", "srv1", "10.0.0.1.example", 22, "pass1");
+        ServerConfig s2 = createExportedServer("exp-2", "srv2", "10.0.0.1.example", 22, "pass2");
+        ServerConfig s3 = createExportedServer("exp-3", "srv3", "10.0.0.1.example", 22, "pass3");
         exported.add(s1);
         exported.add(s2);
         exported.add(s3);
 
         List<ServerConfig> current = new ArrayList<>();
-        ServerConfig c1 = createCurrentServer("cur-1", "10.0.0.1", 22); // 匹配 s1
-        ServerConfig c4 = createCurrentServer("cur-4", "10.0.0.4", 22); // 不匹配
+        ServerConfig c1 = createCurrentServer("cur-1", "10.0.0.1.example", 22); // 匹配 s1
+        ServerConfig c4 = createCurrentServer("cur-4", "10.0.0.1.example", 22); // 不匹配
         current.add(c1);
         current.add(c4);
 

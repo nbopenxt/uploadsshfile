@@ -1,4 +1,4 @@
-﻿package com.openxt.uploadsshfile;
+package com.openxt.uploadsshfile;
 
 /**
  * 测试配置中心 - 统一管理所有测试服务器的连接信息。
@@ -25,8 +25,8 @@ public final class TestConfig {
     //  Linux 服务器 A（用于 SshIntegrationTest / ShellChannelTest / ShellChannelTest3）
     // ================================================================
 
-    /** SSH 主机地址（如 "REDACTED-IP"） */
-    public static final String LINUX_HOST = "REDACTED-IP";
+    /** SSH 主机地址（如 "10.0.0.1.example"） */
+    public static final String LINUX_HOST = "";
 
     /** SSH 端口 */
     public static final int LINUX_PORT = 22;
@@ -38,13 +38,13 @@ public final class TestConfig {
     public static final String LINUX_PASSWORD = "";
 
     /** 远程测试目录（如 "/home/temp"） */
-    public static final String LINUX_REMOTE_PATH = "/home/temp";
+    public static final String LINUX_REMOTE_PATH = "";
 
     // ================================================================
     //  Windows 服务器 B（用于 ShellChannelTest2）
     // ================================================================
 
-    /** SSH 主机地址（如 "REDACTED-IP"） */
+    /** SSH 主机地址（如 "192.168.0.1.example"） */
     public static final String WINDOWS_B_HOST = "";
 
     /** SSH 端口 */
@@ -63,8 +63,8 @@ public final class TestConfig {
     //  Windows 服务器 C（用于 ShellChannelTest3）
     // ================================================================
 
-    /** SSH 主机地址（如 "REDACTED-IP"） */
-    public static final String WINDOWS_C_HOST = "REDACTED-IP";
+    /** SSH 主机地址（如 "10.0.0.1.example"） */
+    public static final String WINDOWS_C_HOST = "";
 
     /** SSH 端口 */
     public static final int WINDOWS_C_PORT = 22;
@@ -76,7 +76,7 @@ public final class TestConfig {
     public static final String WINDOWS_C_PASSWORD = "";
 
     /** 远程测试目录（如 "e:/temp"） */
-    public static final String WINDOWS_C_REMOTE_PATH = "e:/temp";
+    public static final String WINDOWS_C_REMOTE_PATH = "";
 
     // ================================================================
     //  AI 服务密钥（用于 testAIBlacklistCheck / testAIResultCheck）

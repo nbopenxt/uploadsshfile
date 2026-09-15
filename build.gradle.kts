@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.openxt"
-version = "1.0.5"
+version = "1.0.6"
 
 repositories {
     mavenCentral()
@@ -32,7 +32,7 @@ configurations {
 
 dependencies {
     intellijPlatform {
-        local(file("D:/JetBrains/IDEA"))
+        local(file("<YOUR_IDEA_INSTALL_PATH>"))
         bundledPlugin("com.intellij.java")
     }
     
@@ -42,8 +42,8 @@ dependencies {
     implementation(files("libs/java-compiler-ant-tasks-253.31033.145.jar"))
     
     // 使用 compileOnly 强制将本地 JAR 注入编译路径
-    compileOnly(fileTree("D:/JetBrains/IDEA/lib") { include("*.jar") })
-    compileOnly(fileTree("D:/JetBrains/IDEA/modules") { include("**/*.jar") })
+    compileOnly(fileTree("<YOUR_IDEA_INSTALL_PATH>/lib") { include("*.jar") })
+    compileOnly(fileTree("<YOUR_IDEA_INSTALL_PATH>/modules") { include("**/*.jar") })
     
     // LangChain4j 核心（支持所有主流大模型）- 本地 jar
     implementation(files("libs/langchain4j-1.13.0.jar"))
@@ -122,21 +122,30 @@ tasks {
 
 // ============================================
 // 自定义打包配置
+//
+// 产物分两套，各走各的用途：
+// - distributions/<name>-<ver>.zip         标准 buildPlugin 产物（Gradle Zip、deflate、
+//   无自定义 extra field）——上传 JetBrains Marketplace 审核用。
+//   注意：手写 7z 包（store 模式 + NTFS extra + DOS made-by）在 2026-09 起的
+//   新校验管线（IDEA 2026.3 EAP / 263）会被拒：“The plugin archive file
+//   cannot be extracted”。市场一律交标准包。
+// - distributions/<name>-<ver>-store.zip   7z 存储模式包（-mx0），仅内网离线
+//   分发用（与 7z GUI 配置兼容），不得上传市场。
 // ============================================
 
 tasks.register("customPackagePlugin") {
     doLast {
         val buildDir = layout.buildDirectory.get().asFile
-        val distributionsDir = buildDir.resolve("distributions")
-        val pluginDir = distributionsDir.resolve("${project.name}")  // 插件根目录（与插件名同名）
+        val distributionsDir = buildDir.resolve("distributions")   // 正式 zip 在此，禁止清空本目录
+        val stagingDir = buildDir.resolve("package-store")
+        val pluginDir = stagingDir.resolve(project.name)  // 插件根目录（与插件名同名）
         val libDir = pluginDir.resolve("lib")
         val sourceJar = buildDir.resolve("libs/${project.name}-${version}.jar")
         val sourceLibsDir = file("libs")
-        
-        // 1. 创建目标目录
-        distributionsDir.deleteRecursively()
+
+        // 1. 创建目标目录（只清自己的暂存区，不碰 distributions）
+        stagingDir.deleteRecursively()
         distributionsDir.mkdirs()
-        pluginDir.mkdirs()
         libDir.mkdirs()
         
         // 2. 复制插件主 JAR 到 lib 目录
@@ -156,7 +165,8 @@ tasks.register("customPackagePlugin") {
             }
         
         // 4. 执行 zip 打包（使用 7z 存储模式，确保与 7z GUI 配置兼容）
-        val zipFile = distributionsDir.resolve("${project.name}-${version}.zip")
+        // 命名为 -store.zip，避免覆盖标准 buildPlugin 产物（市场上传件）
+        val zipFile = distributionsDir.resolve("${project.name}-${version}-store.zip")
         zipFile.delete()
 
         // 优先使用 7z，fallback 到 PowerShell Compress-Archive
@@ -170,10 +180,11 @@ tasks.register("customPackagePlugin") {
 
         if (sevenZip != null) {
             // 使用 7z 存储模式打包 (-mx0 = 不压缩)
+            // 工作目录取暂存区父目录、只传相对目录名，保证包内条目为 uploadsshfile/...
             val cmd = if (sevenZip.contains(" ")) "\"$sevenZip\"" else sevenZip
             val process = Runtime.getRuntime().exec(
-                arrayOf("cmd", "/c", "$cmd a -tzip -mx0 \"${zipFile}\" \"${pluginDir}\""),
-                null, distributionsDir
+                arrayOf("cmd", "/c", "$cmd a -tzip -mx0 \"${zipFile}\" \"${project.name}\""),
+                null, stagingDir
             )
             val exitCode = process.waitFor()
             if (exitCode != 0) {
@@ -183,9 +194,10 @@ tasks.register("customPackagePlugin") {
         } else {
             // Fallback: 使用 PowerShell Compress-Archive (不压缩模式)
             println("7z not found, using PowerShell Compress-Archive as fallback...")
-            val process = Runtime.getRuntime().exec(arrayOf("powershell", "-Command",
-                "Compress-Archive", "-Path", "${pluginDir}", "-DestinationPath", "${zipFile}", "-CompressionLevel", "NoCompression", "-Force"))
-            process.waitFor()
+            val pb = ProcessBuilder("powershell", "-Command",
+                "Compress-Archive", "-Path", "${project.name}", "-DestinationPath", "${zipFile}", "-CompressionLevel", "NoCompression", "-Force")
+            pb.directory(stagingDir)
+            pb.start().waitFor()
         }
         
         println("Package created: ${zipFile.name}")

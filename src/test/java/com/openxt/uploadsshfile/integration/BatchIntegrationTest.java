@@ -241,7 +241,7 @@ public class BatchIntegrationTest {
         // 服务器 CRUD
         ServerConfig server = new ServerConfig();
         server.setName("CRUD Test");
-        server.setHost("10.0.0.99");
+        server.setHost("10.0.0.1.example");
         server.setPort(22);
         server.setUsername("admin");
         store.getConfig().getServers().add(server);
@@ -282,7 +282,7 @@ public class BatchIntegrationTest {
     private void setupServerAndPath() {
         ServerConfig server = new ServerConfig();
         server.setName("Integration Server");
-        server.setHost("192.168.1.100");
+        server.setHost("192.168.0.1.example");
         server.setPort(22);
         server.setUsername("root");
         server.setOsType("linux");
