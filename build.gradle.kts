@@ -7,11 +7,11 @@ plugins {
 }
 
 group = "com.openxt"
-version = "1.0.6"
+version = "1.0.7"
 
 repositories {
     mavenCentral()
-    // 本地 libs 目录作为 flat 仓库 - 包含下载的 java-compiler-ant-tasks
+    // 本地 libs 目录作为 flat 仓库（历史保留；当前依赖全部走 files(...) 显式路径）
     flatDir { dirs("libs") }
     intellijPlatform {
         defaultRepositories()
@@ -38,9 +38,10 @@ dependencies {
     
     // SFTP 支持 - 编译时依赖
     implementation(files("libs/jsch-0.1.55.jar"))
-    // 强制使用本地 java-compiler-ant-tasks JAR
-    implementation(files("libs/java-compiler-ant-tasks-253.31033.145.jar"))
-    
+    // 注意：原 implementation 的 java-compiler-ant-tasks 已删除（2026-09-22）——
+    // 它把 IDE 私有包 com.intellij.ant 打进分发包，触发 Marketplace 校验警告；
+    // instrumentCode 已禁用、源码零引用，该 jar 编译期与运行期均不需要。
+
     // 使用 compileOnly 强制将本地 JAR 注入编译路径
     compileOnly(fileTree("<YOUR_IDEA_INSTALL_PATH>/lib") { include("*.jar") })
     compileOnly(fileTree("<YOUR_IDEA_INSTALL_PATH>/modules") { include("**/*.jar") })

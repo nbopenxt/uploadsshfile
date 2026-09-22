@@ -6,7 +6,7 @@
 
 **Plugin Name**: UploadSSHFile  
 **Plugin ID**: `com.openxt.uploadsshfile`  
-**Version**: 1.0.6  
+**Version**: 1.0.7  
 **Developer**: Kola  
 **Category**: Utility
 
@@ -293,7 +293,7 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 **插件名称**：UploadSSHFile  
 **插件 ID**：`com.openxt.uploadsshfile`  
-**插件版本**：1.0.6  
+**插件版本**：1.0.7  
 **开发者**：Kola  
 **插件类型**：实用工具 (Utility)
 

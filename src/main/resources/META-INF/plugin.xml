@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.openxt.uploadsshfile</id>
     <name>Upload SSH File</name>
-    <version>1.0.6</version>
+    <version>1.0.7</version>
     <vendor email="support@openxt.com" url="https://github.com/nbopenxt/uploadsshfile">openxt</vendor>
     <idea-version since-build="253" until-build="262.*"/>
     <description><![CDATA[
@@ -15,6 +15,10 @@
         </ul>
     ]]></description>
     <change-notes><![CDATA[
+        <b>1.0.7</b>
+        <ul>
+            <li>Stopped bundling the IDE-private package com.intellij.ant (vendored java-compiler-ant-tasks jar removed from the distribution) — clears the JetBrains Marketplace compatibility warning</li>
+        </ul>
         <b>1.0.6</b>
         <ul>
             <li>Fix Marketplace verification failure ("archive cannot be extracted") by shipping the standard buildPlugin archive; the 7z store-mode zip is now packaged separately (-store) for offline distribution only</li>
