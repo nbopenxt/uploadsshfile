@@ -8,8 +8,10 @@ import com.openxt.uploadsshfile.model.KeywordRules;
 import com.openxt.uploadsshfile.model.UnifiedPluginConfig;
 import com.openxt.uploadsshfile.persistence.SecureStorage;
 import com.openxt.uploadsshfile.store.UnifiedConfigStore;
+import com.openxt.uploadsshfile.util.PluginPathManager;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -30,6 +32,19 @@ import static org.junit.Assert.*;
  * UT-21: 异常回滚
  */
 public class ConfigImportExportTest {
+
+    /**
+     * D-21（M1，SRS V2.6）：PluginPathManager 改"注入否则 fail-fast"后，
+     * 测试须经显式初始化把路径钉到固定临时根（同 JVM 跨类一致值，initialize 幂等），
+     * 顺带修正历史行为——SecureStorage.store() 不再写真实 IDEA 配置目录。
+     */
+    @org.junit.BeforeClass
+    public static void initPathInjection() throws Exception {
+        java.nio.file.Path testRoot = java.nio.file.Paths.get(
+                System.getProperty("java.io.tmpdir"), "uploadsshfile-test-inject");
+        java.nio.file.Files.createDirectories(testRoot);
+        com.openxt.uploadsshfile.util.PluginPathManager.initialize(testRoot, testRoot);
+    }
 
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
@@ -100,9 +115,9 @@ public class ConfigImportExportTest {
         assertTrue(exportFile.exists());
         String json = Files.readString(exportFile.toPath());
 
-        // 验证 8 部分都存在
+        // 验证 8 部分都存在（1.0.8/清单⑥：version 升至 3.1）
         assertTrue(json.contains("\"version\""));
-        assertTrue(json.contains("\"3.0\""));
+        assertTrue(json.contains("\"3.1\""));
         assertTrue(json.contains("\"exportTime\""));
         assertTrue(json.contains("\"exportSource\""));
         assertTrue(json.contains("\"servers\""));
@@ -121,7 +136,42 @@ public class ConfigImportExportTest {
         exporter.export(exportFile);
 
         String json = Files.readString(exportFile.toPath());
-        assertTrue(json.contains("\"version\": \"3.0\""));
+        // 1.0.8/D-11（清单⑥）：导出版本 3.1（含 5 个单任务上下文字段）
+        assertTrue(json.contains("\"version\": \"3.1\""));
+    }
+
+    // ========== 1.0.8 AC-19 新增：版本拒绝与单任务 ID 采纳策略 ==========
+
+    @Test
+    public void testValidateFutureVersionRejected() {
+        ConfigImporter importer = new ConfigImporter(store, SecureStorage.getInstance());
+        String futureVersion = "{\"version\": \"3.9\", \"servers\": []}";
+        String result = importer.validate(futureVersion);
+        assertNotNull("高于本机支持的版本必须拒绝（补定②）", result);
+    }
+
+    @Test
+    public void testSingleTaskIdAdoptedOnlyWhenLocalEmpty() throws Exception {
+        // 本机 singleUploadTaskId 为空 → 采纳导入值
+        store.getConfig().setSingleUploadTaskId(null);
+        store.save(store.getConfig());
+        String payloadJson = "{\"version\": \"3.1\", \"servers\": [], \"paths\": [], "
+            + "\"commandConfigs\": [], \"batchTasks\": [], \"aiConfig\": {}, "
+            + "\"blacklist\": {}, \"keywordRules\": {}, \"hasOutputCommands\": {}, "
+            + "\"singleUploadTaskId\": \"7439182763928576001\"}";
+        Files.writeString(exportFile.toPath(), payloadJson);
+        ConfigImporter importer = new ConfigImporter(store, SecureStorage.getInstance());
+        ImportResult res = importer.import_(exportFile);
+        assertTrue(res.isSingleTaskIdAdopted());
+        assertEquals("7439182763928576001", store.getConfig().getSingleUploadTaskId());
+
+        // 本机非空 → 保留本机值（D-10/D-11）
+        store.getConfig().setSingleUploadTaskId("local-keep-me");
+        store.save(store.getConfig());
+        Files.writeString(exportFile.toPath(), payloadJson);
+        ImportResult res2 = importer.import_(exportFile);
+        assertFalse(res2.isSingleTaskIdAdopted());
+        assertEquals("local-keep-me", store.getConfig().getSingleUploadTaskId());
     }
 
     // ========== UT-09: 密码字段 ==========

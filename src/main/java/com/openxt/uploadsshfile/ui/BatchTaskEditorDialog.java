@@ -1,5 +1,7 @@
 package com.openxt.uploadsshfile.ui;
 
+import com.intellij.openapi.application.PathManager;
+import com.openxt.uploadsshfile.batch.BatchExecutionOrchestrator;
 import com.openxt.uploadsshfile.batch.BatchSubTask;
 import com.openxt.uploadsshfile.batch.BatchTask;
 import com.openxt.uploadsshfile.batch.BatchTaskManager;
@@ -7,6 +9,8 @@ import com.openxt.uploadsshfile.config.ConfigManager;
 import com.openxt.uploadsshfile.config.PathConfig;
 import com.openxt.uploadsshfile.config.ServerConfig;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
+import com.openxt.uploadsshfile.store.StoreManager;
+import com.openxt.uploadsshfile.store.UnifiedConfigStore;
 
 import javax.swing.*;
 import java.awt.*;
@@ -30,6 +34,18 @@ public class BatchTaskEditorDialog extends JDialog {
     private DefaultListModel<BatchSubTask> subTaskListModel;
     private JList<BatchSubTask> subTaskList;
     private List<BatchSubTask> subTasks;
+    /** 1.0.8/FR-07：任务 ID 行（批处理任务复用现有 BatchTask.id，可编辑；存量 UUID 不迁移，R16） */
+    private TaskIdPanel taskIdPanel;
+    /** 新建场景下"复制先定号"暂存 ID（D-15），onSave 统一随任务落库；编辑场景恒 null（直接写回 existingTask） */
+    private String pendingTaskId;
+
+    /** ID 文本框初值：编辑＝现有 id（可能是存量 UUID 或雪花）；新建＝pendingTaskId（常为 null→空框） */
+    private String initialEditorId() {
+        if (existingTask != null) {
+            return existingTask.getId();
+        }
+        return pendingTaskId;
+    }
 
     public BatchTaskEditorDialog(JDialog parent, BatchTask existingTask, List<String> initialFilePaths) {
         super(parent, true);
@@ -120,9 +136,63 @@ public class BatchTaskEditorDialog extends JDialog {
         actionPanel.add(saveBtn);
         actionPanel.add(cancelBtn);
 
+        // 任务 ID 行（1.0.8/FR-07：名称行之下；D-12 列表不加 ID 列、编辑器加一行）
+        String cliBat = PathManager.getPluginsDir() + java.io.File.separator
+                + "uploadsshfile" + java.io.File.separator + "uploadsshfile-cli.bat";
+        taskIdPanel = new TaskIdPanel(new TaskIdPanel.TaskIdHost() {
+            @Override
+            public String persistedId() {
+                return existingTask != null ? existingTask.getId() : null;
+            }
+
+            @Override
+            public boolean persist(String newId) {
+                // U-03 执行期间禁改号（批处理跑动中改 ID 会让运行中引用漂移）；
+                // 单任务侧上传中为模态进度窗、无法触达面板，M4 服务器锁补齐后两路同口径
+                if (BatchExecutionOrchestrator.isAnyBatchRunning()) {
+                    JOptionPane.showMessageDialog(BatchTaskEditorDialog.this,
+                            lang.get("task.id.running"), lang.get("common.warning"), JOptionPane.WARNING_MESSAGE);
+                    return false;
+                }
+                String cur = persistedId();
+                if (newId.equals(cur)) {
+                    return true;
+                }
+                String owner = StoreManager.getInstance().getUnifiedConfigStore()
+                        .findTaskIdOwner(newId, cur);
+                if (owner != null) {
+                    String ownerName = UnifiedConfigStore.TASK_ID_OWNER_SINGLE.equals(owner)
+                            ? lang.get("task.id.owner.single") : owner;
+                    JOptionPane.showMessageDialog(BatchTaskEditorDialog.this,
+                            lang.get("task.id.conflict", ownerName),
+                            lang.get("common.warning"), JOptionPane.WARNING_MESSAGE);
+                    return false;
+                }
+                if (existingTask != null) {
+                    existingTask.setId(newId);
+                    taskManager.saveBatchTask(existingTask);
+                } else {
+                    pendingTaskId = newId; // 新建场景：复制即定号，onSave 统一落库
+                }
+                return true;
+            }
+
+            @Override
+            public boolean isBatch() {
+                return true;
+            }
+        }, initialEditorId(), cliBat, lang);
+        JPanel northPanel = new JPanel();
+        northPanel.setLayout(new BoxLayout(northPanel, BoxLayout.Y_AXIS));
+        namePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        taskIdPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        northPanel.add(namePanel);
+        northPanel.add(Box.createVerticalStrut(6));
+        northPanel.add(taskIdPanel);
+
         // 组装
         JPanel centerPanel = new JPanel(new BorderLayout(5, 5));
-        centerPanel.add(namePanel, BorderLayout.NORTH);
+        centerPanel.add(northPanel, BorderLayout.NORTH);
         centerPanel.add(subTaskPanel, BorderLayout.CENTER);
         centerPanel.add(subBtnPanel, BorderLayout.SOUTH);
 
@@ -198,6 +268,31 @@ public class BatchTaskEditorDialog extends JDialog {
             task = new BatchTask();
             task.setName(name);
         }
+
+        // 1.0.8/FR-07（流程 E）：改号须过 U-03 与跨命名空间查重两道闸；未改号保持现值（存量 UUID 不迁移，R16）
+        String taskId = taskIdPanel.getDisplayedId().trim();
+        if (taskId.isEmpty()) {
+            taskId = task.getId(); // 空框＝沿用构造默认（新建）或现值（编辑）
+        }
+        if (taskId != null && !taskId.equals(task.getId())) {
+            if (BatchExecutionOrchestrator.isAnyBatchRunning()) {
+                JOptionPane.showMessageDialog(this, lang.get("task.id.running"),
+                        lang.get("common.warning"), JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            String owner = StoreManager.getInstance().getUnifiedConfigStore()
+                    .findTaskIdOwner(taskId, task.getId());
+            if (owner != null) {
+                String ownerName = UnifiedConfigStore.TASK_ID_OWNER_SINGLE.equals(owner)
+                        ? lang.get("task.id.owner.single") : owner;
+                JOptionPane.showMessageDialog(this, lang.get("task.id.conflict", ownerName),
+                        lang.get("common.warning"), JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            task.setId(taskId);
+            pendingTaskId = null;
+        }
+
         task.setSubTasks(subTasks);
         taskManager.saveBatchTask(task);
         saved = true;

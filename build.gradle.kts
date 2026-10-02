@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.openxt"
-version = "1.0.7"
+version = "1.0.8"
 
 repositories {
     mavenCentral()
@@ -30,14 +30,24 @@ configurations {
     }
 }
 
+// ============================================================================
+// 根项目＝plugin 模块（1.0.8/M1，FR-01）：IDE 层（action/ ui/ startup/ plugin.xml）。
+// 业务逻辑全部位于 :core（零 IDE 依赖，checkCoreNoIde 双校门禁）。
+// M1 段③收缩完成：13 个业务包与 messages 文案表已物理迁入 core/src/main，
+// 本模块仅存 action/ ui/ startup/ 与 META-INF/plugin.xml；段①的对称
+// include/exclude 圈定（D-14）与单源清单属性随之删除。
+// ============================================================================
 dependencies {
     intellijPlatform {
         local(file("<YOUR_IDEA_INSTALL_PATH>"))
         bundledPlugin("com.intellij.java")
     }
-    
-    // SFTP 支持 - 编译时依赖
-    implementation(files("libs/jsch-0.1.55.jar"))
+
+    // 业务层（jsch/gson/langchain4j 经其 api(files) 传递可见；打包随插件 lib/）
+    implementation(project(":core"))
+    // 1.0.8 R23：CLI 只随插件包发布——plugin 代码不引用 cli 类（编译期零耦合），
+    // 仅以 runtimeOnly 把 cli.jar 打入标准 zip 的 lib/，供 bat 运行期 classpath 使用
+    runtimeOnly(project(":cli"))
     // 注意：原 implementation 的 java-compiler-ant-tasks 已删除（2026-09-22）——
     // 它把 IDE 私有包 com.intellij.ant 打进分发包，触发 Marketplace 校验警告；
     // instrumentCode 已禁用、源码零引用，该 jar 编译期与运行期均不需要。
@@ -45,31 +55,7 @@ dependencies {
     // 使用 compileOnly 强制将本地 JAR 注入编译路径
     compileOnly(fileTree("<YOUR_IDEA_INSTALL_PATH>/lib") { include("*.jar") })
     compileOnly(fileTree("<YOUR_IDEA_INSTALL_PATH>/modules") { include("**/*.jar") })
-    
-    // LangChain4j 核心（支持所有主流大模型）- 本地 jar
-    implementation(files("libs/langchain4j-1.13.0.jar"))
-    
-    // OpenAI compatible protocol (Qwen/DeepSeek/Doubao/Moonshot all use this) - local jar
-    implementation(files("libs/langchain4j-open-ai-1.13.0.jar"))
-    
-    // Google Gemini 原生 - 本地 jar
-    implementation(files("libs/langchain4j-google-ai-gemini-1.13.0.jar"))
-    
-    // Anthropic Claude 原生 - 本地 jar
-    implementation(files("libs/langchain4j-anthropic-1.13.0.jar"))
-    
-    // Ollama 本地模型 - 本地 jar
-    implementation(files("libs/langchain4j-ollama-1.13.0.jar"))
-    
-    // LangChain4j HTTP Client（必需）- 本地 jar
-    implementation(files("libs/langchain4j-http-client-1.13.0.jar"))
-    
-    // LangChain4j JDK HTTP Client（HTTP 实现）- 本地 jar
-    implementation(files("libs/langchain4j-http-client-jdk-1.13.0.jar"))
-    
-    // LangChain4j Core（包含 ChatModel 等核心接口）- 本地 jar
-    implementation(files("libs/langchain4j-core-1.13.0.jar"))
-    
+
     // JUnit 4 测试依赖（与 IntelliJ Platform 兼容）
     testImplementation("junit:junit:4.13.2")
 }
@@ -156,6 +142,16 @@ tasks.register("customPackagePlugin") {
         } else {
             println("Warning: Plugin JAR not found: $sourceJar")
         }
+
+        // 2b. 1.0.8 多模块：core/cli 的 jar 一并入 lib（与标准 zip 同源；
+        //     依赖构建顺序由 dependsOn 保证——见本任务尾部）
+        listOf(project(":core"), project(":cli")).forEach { sub ->
+            val subJarDir = sub.layout.buildDirectory.dir("libs").get().asFile
+            subJarDir.listFiles { f -> f.extension == "jar" }?.forEach { jar ->
+                Files.copy(jar.toPath(), libDir.resolve(jar.name).toPath(), StandardCopyOption.REPLACE_EXISTING)
+                println("Copied: ${project.name}/lib/${jar.name}")
+            }
+        }
         
         // 3. 复制第三方 JAR 到 lib 目录（排除 java-compiler-ant-tasks，它不需要打包）
         sourceLibsDir.listFiles()
@@ -219,6 +215,11 @@ tasks.register("customPackagePlugin") {
 tasks.named("buildPlugin") {
     dependsOn("jar")
     finalizedBy("customPackagePlugin")
+}
+
+// 1.0.8 多模块：store zip 组装前必须已产出 core/cli 的 jar（customPackagePlugin 直读其 build/libs）
+tasks.named("customPackagePlugin") {
+    dependsOn(":core:jar", ":cli:jar")
 }
 
 // 运行 Shell Channel 测试任务

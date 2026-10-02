@@ -41,6 +41,18 @@ import static org.junit.Assert.*;
  */
 public class BatchExecutionOrchestratorTest {
 
+    /**
+     * 1.0.8/M4：批处理子任务序列接入 serverId 分片锁（U-02/R50）——
+     * 锁目录经 PluginPathManager 注入解析（同 D-21 口径），测试固定 tmp 根、跨类幂等。
+     */
+    @org.junit.BeforeClass
+    public static void initPathInjection() throws Exception {
+        java.nio.file.Path testRoot = java.nio.file.Paths.get(
+                System.getProperty("java.io.tmpdir"), "uploadsshfile-test-inject");
+        java.nio.file.Files.createDirectories(testRoot);
+        com.openxt.uploadsshfile.util.PluginPathManager.initialize(testRoot, testRoot);
+    }
+
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
 

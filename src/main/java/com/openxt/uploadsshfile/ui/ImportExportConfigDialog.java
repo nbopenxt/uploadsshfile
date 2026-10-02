@@ -279,6 +279,12 @@ public class ImportExportConfigDialog extends JDialog {
                 .append(lang.get("config.import.updated")).append(" ").append(result.getBatchTasksUpdated()).append(" / ")
                 .append(lang.get("config.import.skipped")).append(" ").append(result.getBatchTasksSkipped()).append("\n");
 
+        // 1.0.8/D-11（AC-19，清单⑥）：任务 ID 采纳说明行
+        sb.append(lang.get("task.id.label")).append(" ")
+                .append(result.isSingleTaskIdAdopted()
+                        ? lang.get("config.import.taskid.adopted")
+                        : lang.get("config.import.taskid.kept")).append("\n");
+
         JOptionPane.showMessageDialog(this, sb.toString(), lang.get("config.import.summary"), JOptionPane.INFORMATION_MESSAGE);
     }
 

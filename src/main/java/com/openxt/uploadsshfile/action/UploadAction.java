@@ -153,8 +153,18 @@ public class UploadAction extends AnAction {
             }
         }
 
-        // 执行上传
-        executeUpload(project, validPaths, server, path, password);
+        // 1.0.8/M4（R50/页面4）：GUI 与 CLI 共用同一把 serverId 分片锁——执行前抢锁；
+        // 被占弹"等待/取消"（等待后台轮询不冻结 EDT）；取消＝直接返回、不改任何配置（流程 C）。
+        // 句柄移交上传线程，其 finally 单一出口释放（RISK-15）
+        com.openxt.uploadsshfile.sync.UploadLockManager.Handle lockHandle =
+                com.openxt.uploadsshfile.ui.LockConflictDialog.acquireWithUiWait(
+                        window, server.getId(), uploadDialog.getTaskIdValue(), lm);
+        if (lockHandle == null) {
+            return;
+        }
+
+        // 执行上传（1.0.8/FR-06：携带对话框任务 ID 值，上传全部成功且校验通过后落盘——U-01）
+        executeUpload(project, validPaths, server, path, password, uploadDialog.getTaskIdValue(), lockHandle);
     }
 
     /**
@@ -358,7 +368,8 @@ public class UploadAction extends AnAction {
      */
     private void executeUpload(Project project, List<String> paths,
                                ServerConfig server, PathConfig pathConfig,
-                               String password) {
+                               String password, String pendingTaskId,
+                               com.openxt.uploadsshfile.sync.UploadLockManager.Handle lockHandle) {
         // 创建进度对话框
         ProgressDialog progressDialog = new ProgressDialog(null);
         progressDialog.setVisible(true);
@@ -382,6 +393,11 @@ public class UploadAction extends AnAction {
                         progressDialog.appendLog(lm.get("progress.connecting", server.getHost())));
 
                 sftpService.connect(server, password);
+
+                // 1.0.8/FR-16（P-08/清单④配套）：勾选目录属性→上传前逐级创建 remotePath
+                if (pathConfig.isAutoCreateRemoteDir()) {
+                    sftpService.mkdirsRemote(pathConfig.getRemotePath());
+                }
 
                 ApplicationManager.getApplication().invokeLater(() ->
                         progressDialog.appendLog(lm.get("progress.connected")));
@@ -500,6 +516,12 @@ public class UploadAction extends AnAction {
                 // 记住本次成功的服务器、路径、命令组和执行时机选择
                 saveLastSelection(server, pathConfig, selectedCommandConfig, selectedTiming);
 
+                // 1.0.8/FR-03（U-01）：本次选中文件全部上传且校验通过 → 落盘单例任务 ID；
+                // 任一文件失败/校验不过不落盘；命令组执行失败不影响（此处尚未执行命令）
+                if (uploadedFiles.get() == totalFiles) {
+                    saveSingleTaskIdOnSuccess(pendingTaskId);
+                }
+
                 // 检查是否需要执行命令
                 if (selectedTiming == ExecuteTiming.AUTO
                     && selectedCommandConfig != null
@@ -551,6 +573,7 @@ public class UploadAction extends AnAction {
                 });
             } finally {
                 sftpService.disconnect();
+                lockHandle.close(); // M4/RISK-15：锁释放单一出口（try/finally 保证）
             }
         }, "UploadThread").start();
     }
@@ -606,6 +629,43 @@ public class UploadAction extends AnAction {
     }
 
     /**
+     * 1.0.8/FR-03：上传全部成功且校验通过时落盘单例任务 ID（U-01，与 lastSuccessful* 并存——清单⑨）。
+     * 规则：对话框值优先；空则沿用已落盘值；都无→生成雪花并查重（#13，撞则重生成）；
+     * 候选与命名空间冲突→保留现值仅记日志（执行期不打断上传流，UI 冲突提示由面板 persist 路径负责）。
+     */
+    private void saveSingleTaskIdOnSuccess(String pendingTaskId) {
+        try {
+            com.openxt.uploadsshfile.store.UnifiedConfigStore store =
+                    StoreManager.getInstance().getUnifiedConfigStore();
+            String cur = store.getSingleUploadTaskId();
+            String candidate = (pendingTaskId != null && !pendingTaskId.trim().isEmpty())
+                    ? pendingTaskId.trim() : cur;
+            if (candidate == null) {
+                for (int i = 0; i < 5; i++) {
+                    candidate = com.openxt.uploadsshfile.model.TaskIdGenerator.nextId();
+                    if (!store.isTaskIdTaken(candidate, null)) {
+                        break;
+                    }
+                    if (i == 4) {
+                        Logger.debug("UploadAction", "task id generation kept colliding, skip");
+                        return;
+                    }
+                }
+            }
+            if (candidate.equals(cur)) {
+                return;
+            }
+            if (store.isTaskIdTaken(candidate, null)) {
+                Logger.debug("UploadAction", "task id conflict with namespace, keep existing: " + cur);
+                return;
+            }
+            store.setSingleUploadTaskId(candidate);
+        } catch (Exception e) {
+            Logger.debug("UploadAction", "Failed to save single task id: " + e.getMessage());
+        }
+    }
+
+    /**
      * 执行命令方法
      */
     private void doExecuteCommands(CommandConfig commandConfig, ServerConfig server, 
@@ -633,6 +693,22 @@ public class UploadAction extends AnAction {
                     aiResultChecker,
                     logService
                 ) {
+                    @Override
+                    protected com.openxt.uploadsshfile.ssh.TimeoutPrompter timeoutPrompter() {
+                        // D-17（清单⑩）：上传后自动执行命令路径启用递进超时询问；
+                        // 桥接到既有 ExecutionProgressDialog.promptContinueWait（此前无人调用）
+                        if (executionDialog == null) {
+                            return null; // 无进度窗场景保持老行为（180s 硬停不询问）
+                        }
+                        return this::promptContinueWait;
+                    }
+
+                    @Override
+                    protected boolean promptContinueWait(String command, long elapsedMs) {
+                        return executionDialog != null
+                                && executionDialog.promptContinueWait(command, elapsedMs);
+                    }
+
                     @Override
                     protected boolean askUserContinue(String message) {
                         if (executionDialog != null) {

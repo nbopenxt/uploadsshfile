@@ -41,6 +41,8 @@ public class ConfigDialog extends JDialog {
     // \u8def\u5f84\u5217\u8868
     private JTable pathTable;
     private DefaultTableModel pathTableModel;
+    /** 1.0.8/FR-16（页面3）：目录不存在时自动创建——表单复选；表格第3列只读展示 */
+    private JCheckBox pathAutoCheck;
     private JComboBox<ServerConfig> pathServerCombo;
 
 // \u8def\u5f84\u8868\u5355
@@ -256,14 +258,21 @@ public class ConfigDialog extends JDialog {
         panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         // \u8def\u5f84\u5217\u8868 - \u4f7f\u7528\u56fd\u9645\u5316\u952e
+        // 1.0.8/FR-16（页面3）：加"自动创建"只读勾选列，编辑走下方表单复选框
         String[] columns = {
             lm.get("table.path.server"),
-            lm.get("table.path.remote")
+            lm.get("table.path.remote"),
+            lm.get("table.path.autocreate")
         };
         pathTableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
+            }
+
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                return columnIndex == 2 ? Boolean.class : String.class;
             }
         };
         pathTable = new JTable(pathTableModel);
@@ -293,6 +302,11 @@ public class ConfigDialog extends JDialog {
                     }
                     pathRemoteField.setText(remotePath);
                     editingPathConfig = findPathConfig(serverName, remotePath);
+                    // 1.0.8/FR-16：表单复选随选中行同步
+                    if (pathAutoCheck != null) {
+                        pathAutoCheck.setSelected(editingPathConfig != null
+                                && editingPathConfig.isAutoCreateRemoteDir());
+                    }
                 }
             }
         });
@@ -313,6 +327,12 @@ public class ConfigDialog extends JDialog {
 
         gbc.gridx = 0; gbc.gridy = 1; formPanel.add(new JLabel(lm.get("path.remote") + ":"), gbc);
         gbc.gridx = 1; formPanel.add(pathRemoteField, gbc);
+
+        // 1.0.8/FR-16（页面3）："目录不存在时自动创建"复选（跨两列）
+        pathAutoCheck = new JCheckBox(lm.get("path.autocreate"));
+        gbc.gridx = 0; gbc.gridy = 2; gbc.gridwidth = 2;
+        formPanel.add(pathAutoCheck, gbc);
+        gbc.gridwidth = 1;
 
         // \u6309\u94ae
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -380,7 +400,9 @@ public class ConfigDialog extends JDialog {
                     Logger.debug("ConfigDialog", "  Skipping invalid path record");
                     continue;
                 }
-                pathTableModel.addRow(new Object[]{server.getName(), path.getRemotePath()});
+                // 1.0.8/FR-16：第3列＝自动创建勾选展示（Boolean→checkbox 渲染）
+                pathTableModel.addRow(new Object[]{server.getName(), path.getRemotePath(),
+                        path.isAutoCreateRemoteDir()});
             }
         }
     }
@@ -578,6 +600,7 @@ public class ConfigDialog extends JDialog {
         PathConfig path = new PathConfig();
         path.setServerId(server.getId());
         path.setRemotePath(remotePath);
+        path.setAutoCreateRemoteDir(pathAutoCheck != null && pathAutoCheck.isSelected()); // 1.0.8/FR-16
 
         configManager.addPath(path);
         pathRemoteField.setText("");
@@ -616,6 +639,8 @@ public class ConfigDialog extends JDialog {
 
         editingPathConfig.setServerId(server.getId());
         editingPathConfig.setRemotePath(remotePath);
+        // 1.0.8/FR-16：目录属性写入
+        editingPathConfig.setAutoCreateRemoteDir(pathAutoCheck != null && pathAutoCheck.isSelected());
         configManager.updatePath(editingPathConfig);
         editingPathConfig = null;
         pathRemoteField.setText("");

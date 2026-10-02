@@ -1,5 +1,6 @@
 package com.openxt.uploadsshfile.ui;
 
+import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.openxt.uploadsshfile.config.PathConfig;
 import com.openxt.uploadsshfile.config.ServerConfig;
@@ -31,6 +32,8 @@ public class UploadDialog extends DialogWrapper {
     private JButton executeCommandsButton;
     private JButton cancelButton;
     private JButton okButton;
+    /** 1.0.8/FR-06：任务 ID 行（单例任务，D-06/D-09；位置在文件清单与服务器下拉之间） */
+    private TaskIdPanel taskIdPanel;
 
     private List<String> selectedPaths;
     private UnifiedConfigStore configStore;
@@ -144,10 +147,49 @@ public class UploadDialog extends DialogWrapper {
         // 提示信息
         JLabel hintLabel = new JLabel("<html><font color='gray'>" + lm.get("upload.hint") + "</font></html>");
 
+        // 任务 ID 行（1.0.8/FR-06：文件清单与服务器下拉之间，设计 §6.2 页面 1；
+        // bat 路径取 PathManager 实值（RISK-08，禁写死），目录名＝插件名 uploadsshfile）
+        String cliBat = PathManager.getPluginsDir() + java.io.File.separator
+                + "uploadsshfile" + java.io.File.separator + "uploadsshfile-cli.bat";
+        taskIdPanel = new TaskIdPanel(new TaskIdPanel.TaskIdHost() {
+            @Override
+            public String persistedId() {
+                return configStore.getSingleUploadTaskId();
+            }
+
+            @Override
+            public boolean persist(String newId) {
+                String cur = configStore.getSingleUploadTaskId();
+                if (newId.equals(cur)) {
+                    return true;
+                }
+                // 跨命名空间查重（§4.2）；单任务为模态对话框且执行期不暴露本面板，
+                // "执行中禁改"(U-03) 在批处理编辑器侧校验；M4 服务器锁接管后两路同口径
+                String owner = configStore.findTaskIdOwner(newId, null);
+                if (owner != null) {
+                    String ownerName = UnifiedConfigStore.TASK_ID_OWNER_SINGLE.equals(owner)
+                            ? lm.get("task.id.owner.single") : owner;
+                    JOptionPane.showMessageDialog(contentPanel,
+                            lm.get("task.id.conflict", ownerName),
+                            lm.get("config.title"), JOptionPane.WARNING_MESSAGE);
+                    return false;
+                }
+                configStore.setSingleUploadTaskId(newId);
+                return true;
+            }
+
+            @Override
+            public boolean isBatch() {
+                return false;
+            }
+        }, configStore.getSingleUploadTaskId(), cliBat, lm);
+
         // 组装
         JPanel centerPanel = new JPanel();
         centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
         centerPanel.add(filePanel);
+        centerPanel.add(Box.createVerticalStrut(10));
+        centerPanel.add(taskIdPanel);
         centerPanel.add(Box.createVerticalStrut(10));
         centerPanel.add(serverPanel);
         centerPanel.add(pathPanel);
@@ -164,6 +206,14 @@ public class UploadDialog extends DialogWrapper {
         loadServers();
 
         return mainPanel;
+    }
+
+    /**
+     * 1.0.8/FR-06：文本框当前任务 ID（可能已改未落盘；
+     * UploadAction 成功路径经查重后落盘——U-01"全部上传且校验通过即落盘"）。
+     */
+    public String getTaskIdValue() {
+        return taskIdPanel == null ? null : taskIdPanel.getDisplayedId();
     }
 
     private void loadServers() {
