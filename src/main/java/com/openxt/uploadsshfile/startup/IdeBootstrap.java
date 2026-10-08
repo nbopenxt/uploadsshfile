@@ -66,6 +66,8 @@ public final class IdeBootstrap {
      * 磁盘 bat 全文件 MD5 ≠ md5(静态模板)（缺失/误删/篡改三态合一）即从内存模板原子重生成；
      * 正常安装（zip 已含字节一致的同款 bat）时 want==have 零写盘。写失败仅记日志、不弹窗。
      * 顺带刷新 java 探测数据文件 java-home.txt（写入失败不影响 bat 自愈，bat 回落 JAVA_HOME/PATH）。
+     * D-43：回落链上每个候选都由 bat 侧 {@code :check} 验 {@code java.specification.version>=21}，
+     * 故本方法只需写"IDEA 自己正在用的那个 java.exe"，无须也不能替 bat 判版本。
      */
     public static void ensureCliBat() {
         Path pluginDir = null;

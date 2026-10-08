@@ -21,6 +21,12 @@ public final class ExitCodes {
     public static final int BLOCKED = 9;                // 被黑名单/语义/AI 拦截
     public static final int USER_ABORT = 10;            // 用户选择中止 / 等待中 Ctrl+C
     public static final int TIMEOUT_OR_NO_STDIN = 11;   // 超时后答"不再等待"，或无 stdin 默认中止
+    /**
+     * D-43（2026-10-08）：bat 前置 java 探测未找到任何 Java 21+ 运行时（三段候选全部不过版本闸门）。
+     * 该码由启动器 bat 自身返回——JVM 从未启动、Main 永不产生它，故与上表不冲突；
+     * 出现即意味着"装完从未启动过 IDEA 且 JAVA_HOME/PATH 只指向 Java 8/11/17"这类环境。
+     */
+    public static final int JAVA_RUNTIME = 12;
 
     private ExitCodes() {
     }

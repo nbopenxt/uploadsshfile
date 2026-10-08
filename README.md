@@ -6,9 +6,11 @@
 
 **Plugin Name**: UploadSSHFile  
 **Plugin ID**: `com.openxt.uploadsshfile`  
-**Version**: 1.0.8  
+**Version**: 1.0.9  
 **Developer**: Kola  
 **Category**: Utility
+
+> **1.0.9** (2026-10-08): the CLI launcher now checks the *version* of every Java runtime it finds and requires Java 21+ — older JVMs are skipped instead of used, and when no Java 21+ runtime exists it prints an actionable message and exits with code 12 (previously it died with a raw `UnsupportedClassVersionError`). If IDEA has not run since the plugin was installed or upgraded, the launcher prints one line — `Please restart IntelliJ IDEA to run this task.` — and stops with exit code 12. 1.0.8 introduced the CLI, task IDs and build snippets.
 
 ---
 
@@ -141,12 +143,12 @@ Pattern-matches commands using built-in regex rules to identify common risky ope
 
 ---
 
-## CLI Auto-Upload (1.0.8)
+## CLI Auto-Upload (introduced in 1.0.8, Java 21+ launcher gate since 1.0.9)
 
 Upload the build artifact and run the remote command group without returning to the IDE — triggered from a build hook or typed by hand in a terminal. Human confirmation of risk prompts is by design (semi-automatic).
 
 **Setup**
-1. The launcher `<plugin install dir>/uploadsshfile-cli.bat` ships **inside the plugin archive** and is byte-identical on every machine — after installing or upgrading (including IDEA hot-reload) the CLI works immediately, no "start IDEA / open a menu first" required. The plugin still self-heals the file if it is deleted or edited (integrity check restores the exact packaged bytes). The launcher locates Java in this order: `java-home.txt` beside it (written by the IDEA process, its own bundled JBR) → `%JAVA_HOME%\bin\java.exe` → `java` on PATH (JDK 21+). Restart IDEA fully (File → Exit) once after an upgrade to refresh `java-home.txt` and all plugin state.
+1. The launcher `<plugin install dir>/uploadsshfile-cli.bat` ships **inside the plugin archive** and is byte-identical on every machine — after installing or upgrading (including IDEA hot-reload) the CLI works immediately, no "start IDEA / open a menu first" required. The plugin still self-heals the file if it is deleted or edited (integrity check restores the exact packaged bytes). The launcher locates Java in this order: `java-home.txt` beside it (written by the IDEA process, its own bundled JBR) → `%JAVA_HOME%\bin\java.exe` → `java` on PATH. **Every candidate is version-checked: a JVM older than Java 21 is skipped, never used** — if no candidate qualifies, the launcher prints `ERROR: no Java 21+ runtime found` (with the values it checked and two remedies: start IDEA once, or point `JAVA_HOME` at a JDK 21+) and exits with code **12**, instead of failing with a JVM `UnsupportedClassVersionError` stack. On a first install, or right after an upgrade, the launcher may answer with a single line — `Please restart IntelliJ IDEA to run this task.` (exit code 12). That only means IDEA has not run since the change: start it once (File → Exit closes it fully) and the command line works.
 2. For the single upload task, right-click the files/folders in IDEA, adjust server/path/command in the Upload dialog and **close the dialog** — the file list and selections are saved as the task snapshot; the CLI then uploads exactly that saved list by Task ID (no `--file` on the command line).
 
 **Task ID & snippet** — the single upload dialog and the batch task editor show an editable **Task ID** plus a **Copy** button: pick Gradle (Groovy DSL) / Gradle (Kotlin DSL) / Maven / Ant and a complete ready-to-paste build snippet goes to the clipboard. Snippets carry only the Task ID (plus `--yes`): at run time the CLI resolves the file list from the task configuration — single-task = the list saved when the Upload dialog last closed (multi-select supported; change files = reopen and close the dialog once, **no need to re-copy the snippet**), batch-task = the per-sub-task file lists saved in the task. Gradle snippets — single-task and batch alike — carry `onlyIf` so a failed build never uploads, and all forms carry `ignoreExitValue` so an upload failure never flips the build result. The explanatory comments inside every snippet are written in your IDE's display language at copy time; the hook line notes that the upload runs after whichever task it is attached to (e.g. `build`, or switch it to `war` or any existing task name). Maven/Ant variants come from templates **not verified against a real build** — check paths and quoting before use. New IDs are auto-filled as pure-digit snowflake values, and any newly set or edited ID must be alphanumeric (no `-`); legacy UUID-form IDs remain fully usable and are never rewritten.
@@ -321,9 +323,11 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 **插件名称**：UploadSSHFile  
 **插件 ID**：`com.openxt.uploadsshfile`  
-**插件版本**：1.0.8  
+**插件版本**：1.0.9  
 **开发者**：Kola  
 **插件类型**：实用工具 (Utility)
+
+> **1.0.9**（2026-10-08）：CLI 启动器现在会校验它找到的每个 Java 运行时的**版本**，要求 Java 21+——低于 21 的 JVM 一律跳过、不再拿来就跑；一台 21+ 都没有时给出可行动的提示（回显它检查到的取值＋两条处置）并以退出码 12 结束，不再把 JVM 的版本错误堆栈甩给用户。若 IDEA 在装/升级后还没跑过，启动器只回一句 `Please restart IntelliJ IDEA to run this task.`（退出码 12）——就是「重启 IDEA 才能执行本任务」的意思，启动一次 IDEA 即可，并非系统故障。1.0.8 引入了 CLI、任务 ID 与构建片段。
 
 ---
 
@@ -455,12 +459,12 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 
 ---
 
-## CLI 自动上传（1.0.8）
+## CLI 自动上传（1.0.8 引入，1.0.9 起启动器校验 Java 21+）
 
 编译后无需回到 IDE 点鼠标即可上传产物并执行远端命令组——由构建钩子触发或在终端手工敲入；风险询问在终端人工确认是设计意图（半自动）。
 
 **准备**
-1. 启动器 `<插件安装目录>/uploadsshfile-cli.bat` **随插件包分发**、全机器字节一致——安装或升级后（含 IDEA 热加载）CLI 立即可用，无需"先启动一次 IDEA / 先点开菜单"。插件仍保留自愈：启动器被误删或改动时，完整性检查会还原为与包内一致的字节。Java 定位顺序：启动器旁 `java-home.txt`（IDEA 进程写入其自带 JBR 路径）→ `%JAVA_HOME%\bin\java.exe` → PATH 上的 `java`（需 JDK 21+）。升级后建议完整重启 IDEA（File → Exit）一次以刷新 `java-home.txt` 与插件状态。
+1. 启动器 `<插件安装目录>/uploadsshfile-cli.bat` **随插件包分发**、全机器字节一致——安装或升级后（含 IDEA 热加载）CLI 立即可用，无需"先启动一次 IDEA / 先点开菜单"。插件仍保留自愈：启动器被误删或改动时，完整性检查会还原为与包内一致的字节。Java 定位顺序：启动器旁 `java-home.txt`（IDEA 进程写入其自带 JBR 路径）→ `%JAVA_HOME%\bin\java.exe` → PATH 上的 `java`。**每个候选都要过版本校验：低于 Java 21 的 JVM 一律跳过、绝不使用**——若三段候选全部不合格，启动器打印 `ERROR: no Java 21+ runtime found`（同时回显它检查到的取值与两条处置：先启动一次 IDEA，或把 `JAVA_HOME` 指向 JDK 21+）并以退出码 **12** 结束，不再把 JVM 的 `UnsupportedClassVersionError` 堆栈甩给使用者。若 `java-home.txt` 还不存在（首次安装或升级后 IDEA 尚未写过它），启动器只打一行——`[UploadSSHFile CLI] Please restart IntelliJ IDEA to run this task.`——然后以退出码 12 结束，不再去找别的 Java。**点开一次插件右键菜单就能生成这个文件，不必重启**。升级后建议完整重启 IDEA（File → Exit）一次以刷新 `java-home.txt` 与插件状态。
 2. 单次上传任务：在 IDEA 里右键选中要传的文件/目录，在上传窗口确认服务器/目录/命令组后**关闭窗口**——文件清单与选择即作为"任务快照"保存；CLI 之后按任务 ID 上传正是这份保存清单（命令行不再需要 `--file`）。
 
 **任务 ID 与片段复制**——单次上传对话框与批处理任务编辑器均提供可编辑的 **任务 ID** 与**【复制】按钮**：选定 Gradle (Groovy DSL) / Gradle (Kotlin DSL) / Maven / Ant 后即复制**可直接粘贴进构建文件的完整片段**——片段只带任务 ID，不含任何文件参数：运行时 CLI 按任务 ID 解析文件清单，单任务＝**上传窗口上次关窗时保存的清单**（支持多选；换文件＝重新开窗关窗一次，**无需重新复制片段**），批任务＝任务里保存的各子任务文件清单。gradle 片段（单任务与批任务同构）均含 `onlyIf`（构建失败绝不上传）与 `ignoreExitValue`（上传失败不回改构建结论）；片段内说明注释按**复制时 IDE 界面语言**输出（8 语），挂载行注释会说明"上传＝挂在哪个任务之后就在那个任务后执行"（如 build／war，可改为工程里任意既有任务名）。Maven/Ant 片段来自**未经真实构建验证**的模板，使用前务必检查路径与引号转义。新建时窗口即预填纯数字雪花默认 ID；新建/修改的 ID 仅允许字母与数字（不得含 `-` 等符号），存量 UUID 形式的 ID 原样可用、不迁移。

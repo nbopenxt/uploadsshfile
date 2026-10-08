@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.openxt.uploadsshfile</id>
     <name>Upload SSH File</name>
-    <version>1.0.8</version>
+    <version>1.0.9</version>
     <vendor email="support@openxt.com" url="https://github.com/nbopenxt/uploadsshfile">openxt</vendor>
     <idea-version since-build="253" until-build="262.*"/>
     <description><![CDATA[
@@ -14,9 +14,18 @@
             <li>Server and path configuration management, import/export of the full configuration</li>
             <li>8 UI languages (en/中文/de/fr/es/ja/ko/ar)</li>
             <li>1.0.8: Task IDs + copyable build snippets (Gradle Groovy/Kotlin, Maven, Ant) and a standalone CLI — bundled inside the plugin archive — that re-runs a saved upload task from a build hook or a terminal, with cross-process per-server upload locking shared by GUI and CLI</li>
+            <li>1.0.9: the CLI launcher verifies that every Java runtime it discovers is Java 21 or newer, and says so in plain words when none is — no more raw JVM version errors</li>
         </ul>
     ]]></description>
     <change-notes><![CDATA[
+        <b>1.0.9</b>
+        <ul>
+            <li>Fix: the CLI launcher now checks the <b>version</b> of every Java runtime it discovers (java-home.txt, then JAVA_HOME, then PATH) and requires Java 21 or newer — an older JVM is now skipped instead of being used. Previously each candidate was only checked for existence, so on machines where <code>JAVA_HOME</code> points at JDK 8 the command line died with <code>UnsupportedClassVersionError … class file version 65.0 … only recognizes … 52.0</code> and left the user nothing to act on.</li>
+            <li>If no Java 21+ runtime is available, the launcher prints a short explanation showing the values it checked plus two remedies (start IDEA once so it records its own bundled runtime, or point <code>JAVA_HOME</code> at a JDK 21+ install) and exits with code 12.</li>
+            <li>Fix: a stale <code>java-home.txt</code> — left behind when IDEA is moved or uninstalled — no longer stops discovery; the launcher falls through to the next candidate.</li>
+            <li>On a first install, or right after an upgrade, the command line may answer with a single line — <code>Please restart IntelliJ IDEA to run this task.</code> — and exit with code 12. It is not an error: start IDEA once and the command line works.</li>
+            <li>No workflow change: task IDs, saved file lists and pasted build snippets keep working exactly as before. After upgrading, restart IDEA (File → Exit) once so the launcher and <code>java-home.txt</code> are refreshed.</li>
+        </ul>
         <b>1.0.8</b>
         <ul>
             <li>Standalone CLI entry, shipped inside the plugin archive (never distributed separately): the launcher <code>uploadsshfile-cli.bat</code> is a static packaged file — usable immediately after install/upgrade/hot-reload, and self-healed if deleted or edited. It uploads the saved file list and runs the remote command group of a task by its Task ID, e.g. from a build hook or a terminal.</li>
