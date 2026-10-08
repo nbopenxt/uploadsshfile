@@ -7,6 +7,7 @@ import com.openxt.uploadsshfile.config.ServerConfig;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
 import com.openxt.uploadsshfile.model.CommandConfig;
 import com.openxt.uploadsshfile.model.ExecuteTiming;
+import com.openxt.uploadsshfile.model.TaskIdGenerator;
 import com.openxt.uploadsshfile.store.StoreManager;
 import com.openxt.uploadsshfile.store.UnifiedConfigStore;
 import com.openxt.uploadsshfile.util.Logger;
@@ -151,17 +152,31 @@ public class UploadDialog extends DialogWrapper {
         // bat 路径取 PathManager 实值（RISK-08，禁写死），目录名＝插件名 uploadsshfile）
         String cliBat = PathManager.getPluginsDir() + java.io.File.separator
                 + "uploadsshfile" + java.io.File.separator + "uploadsshfile-cli.bat";
+        // D-25（FR-04）：开窗即预填雪花默认值（从未落盘时；仅显示不落盘，落盘时机不变）。
+        // 预填值极端情况下与存量撞号，由 persist 查重兜底拒落
+        String initialTaskId = configStore.getSingleUploadTaskId();
+        if (initialTaskId == null || initialTaskId.isEmpty()) {
+            initialTaskId = TaskIdGenerator.nextId();
+        }
         taskIdPanel = new TaskIdPanel(new TaskIdPanel.TaskIdHost() {
             @Override
             public String persistedId() {
                 return configStore.getSingleUploadTaskId();
             }
 
+            // D-38：snippetFiles() 契约作废（片段不再内嵌 --file，CLI 按任务 ID 读关窗快照）
+
             @Override
             public boolean persist(String newId) {
                 String cur = configStore.getSingleUploadTaskId();
                 if (newId.equals(cur)) {
-                    return true;
+                    return true; // 存量原值回填＝视同未改号，按不透明放行（FR-05）
+                }
+                // D-25（FR-04 补注）：改号/新落盘值仅允许字母数字（拒 '-' 等符号）
+                if (!TaskIdGenerator.isValidNewId(newId)) {
+                    JOptionPane.showMessageDialog(contentPanel, lm.get("task.id.invalid"),
+                            lm.get("config.title"), JOptionPane.WARNING_MESSAGE);
+                    return false;
                 }
                 // 跨命名空间查重（§4.2）；单任务为模态对话框且执行期不暴露本面板，
                 // "执行中禁改"(U-03) 在批处理编辑器侧校验；M4 服务器锁接管后两路同口径
@@ -182,7 +197,7 @@ public class UploadDialog extends DialogWrapper {
             public boolean isBatch() {
                 return false;
             }
-        }, configStore.getSingleUploadTaskId(), cliBat, lm);
+        }, initialTaskId, cliBat, lm);
 
         // 组装
         JPanel centerPanel = new JPanel();
@@ -214,6 +229,77 @@ public class UploadDialog extends DialogWrapper {
      */
     public String getTaskIdValue() {
         return taskIdPanel == null ? null : taskIdPanel.getDisplayedId();
+    }
+
+    /**
+     * 1.0.8/D-37：本对话框当前上传的文件/目录清单（右键新选、或空选时回放的已存快照清单）。
+     * UploadAction 执行与关窗快照落盘共用此单点数据源。
+     */
+    public List<String> getUploadPaths() {
+        return new java.util.ArrayList<>(selectedPaths);
+    }
+
+    /**
+     * D-37 关窗快照单点：DialogWrapper（253 无 windowClosed 钩子，实测以 javap 为准）
+     * OK / Cancel / ✕（经 doCancelAction）三路收口后必过 dispose()——"每次修改，
+     * 关闭界面时持久化"即落在此唯一钩子；doCancelAction 的"留在窗口"分支不到 dispose，
+     * doOKAction 校验失败早退同理——只有真关窗才落盘。
+     * 数据源＝当前界面实态（下拉与单选钮即时值＋本次清单），整体覆盖单槽。
+     */
+    @Override
+    protected void dispose() {
+        persistSingleTaskSnapshotOnClose();
+        super.dispose();
+    }
+
+    private void persistSingleTaskSnapshotOnClose() {
+        if (configStore == null || serverCombo == null) {
+            return; // 面板未装配（异常构造路径），不落残缺快照
+        }
+        ServerConfig s = (ServerConfig) serverCombo.getSelectedItem();
+        PathConfig p = (PathConfig) pathCombo.getSelectedItem();
+        CommandConfig c = (CommandConfig) commandCombo.getSelectedItem();
+        String timing = null;
+        if (timingAutoRadio != null && timingAutoRadio.isSelected()) {
+            timing = "AUTO";
+        } else if (timingManualRadio != null && timingManualRadio.isSelected()) {
+            timing = "MANUAL";
+        }
+        try {
+            configStore.saveSingleUploadTask(getUploadPaths(),
+                    s != null ? s.getId() : null,
+                    p != null ? p.getId() : null,
+                    c != null ? c.getId() : null,
+                    timing);
+            Logger.debug("UploadDialog", "D-37 snapshot saved on close: " + selectedPaths.size() + " file(s)");
+        } catch (Exception ex) {
+            Logger.error("UploadDialog", "D-37 snapshot save failed: " + ex.getMessage());
+        }
+    }
+
+    /** D-37：回显取 ID——关窗快照优先（"上次保存"），回落 lastSuccessful*（"上次成功"，旧语义保留） */
+    private String effectiveServerId() {
+        com.openxt.uploadsshfile.model.SingleUploadTask t = configStore.getSingleUploadTask();
+        if (t != null && t.getServerId() != null) return t.getServerId();
+        return configStore.getLastSuccessfulServerId();
+    }
+
+    private String effectivePathId() {
+        com.openxt.uploadsshfile.model.SingleUploadTask t = configStore.getSingleUploadTask();
+        if (t != null && t.getPathId() != null) return t.getPathId();
+        return configStore.getLastSuccessfulPathId();
+    }
+
+    private String effectiveCommandConfigId() {
+        com.openxt.uploadsshfile.model.SingleUploadTask t = configStore.getSingleUploadTask();
+        if (t != null && t.getCommandConfigId() != null) return t.getCommandConfigId();
+        return configStore.getLastSuccessfulCommandConfigId();
+    }
+
+    private String effectiveTiming() {
+        com.openxt.uploadsshfile.model.SingleUploadTask t = configStore.getSingleUploadTask();
+        if (t != null && t.getTiming() != null) return t.getTiming();
+        return configStore.getLastSuccessfulTiming();
     }
 
     private void loadServers() {
@@ -253,10 +339,10 @@ public class UploadDialog extends DialogWrapper {
     }
 
     /**
-     * 尝试恢复上次成功选择的服务器
+     * 尝试恢复上次成功选择的服务器（D-37 起：关窗快照优先，回落成功记忆——方法名与旧语义并存保留）
      */
     private void restoreLastSuccessfulServer() {
-        String lastServerId = configStore.getLastSuccessfulServerId();
+        String lastServerId = effectiveServerId();
         if (lastServerId == null) return;
 
         for (int i = 0; i < serverCombo.getItemCount(); i++) {
@@ -275,7 +361,7 @@ public class UploadDialog extends DialogWrapper {
      * @return true 如果找到并选中了上次的路径
      */
     private boolean restoreLastSuccessfulPath() {
-        String lastPathId = configStore.getLastSuccessfulPathId();
+        String lastPathId = effectivePathId(); // D-37 快照优先
         if (lastPathId == null) return false;
 
         for (int i = 0; i < pathCombo.getItemCount(); i++) {
@@ -293,7 +379,7 @@ public class UploadDialog extends DialogWrapper {
      * @return true 如果找到并选中了上次的命令组
      */
     private boolean restoreLastSuccessfulCommandConfig() {
-        String lastCommandConfigId = configStore.getLastSuccessfulCommandConfigId();
+        String lastCommandConfigId = effectiveCommandConfigId(); // D-37 快照优先
         if (lastCommandConfigId == null) return false;
 
         for (int i = 0; i < commandCombo.getItemCount(); i++) {
@@ -310,7 +396,7 @@ public class UploadDialog extends DialogWrapper {
      * 尝试恢复上次成功选择的执行时机
      */
     private void restoreLastSuccessfulTiming() {
-        String lastTiming = configStore.getLastSuccessfulTiming();
+        String lastTiming = effectiveTiming(); // D-37 快照优先
         if (lastTiming == null) return;
         if ("AUTO".equals(lastTiming)) {
             timingAutoRadio.setSelected(true);
@@ -388,6 +474,25 @@ public class UploadDialog extends DialogWrapper {
         }
     }
 
+    /**
+     * D-30C（用户裁定）：关窗（标题栏 ✕ 走本方法；Cancel 按钮经既有私有 onCancel 重定向至此）
+     * 若存在"已改且非法"的任务 ID——该值不会被落盘（四入口校验在先），静默丢弃曾致
+     * 用户困惑"没提示也没保存"，现改为弹一次确认：继续关闭＝放弃修改；返回编辑＝留在窗口。
+     */
+    @Override
+    public void doCancelAction() {
+        if (taskIdPanel != null && taskIdPanel.hasInvalidPendingEdit()) {
+            int choice = JOptionPane.showConfirmDialog(this.getContentPanel(),
+                    lm.get("task.id.invalid.discard"),
+                    lm.get("common.warning"),
+                    JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+            if (choice != JOptionPane.YES_OPTION) {
+                return; // 留在窗口内修改
+            }
+        }
+        super.doCancelAction();
+    }
+
     @Override
     protected void doOKAction() {
         selectedServer = (ServerConfig) serverCombo.getSelectedItem();
@@ -401,6 +506,17 @@ public class UploadDialog extends DialogWrapper {
 
         if (selectedPath == null) {
             JOptionPane.showMessageDialog(contentPanel, lm.get("upload.error.noPath"), lm.get("config.title"), JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // D-25（FR-04 补注）："已改未落盘"的任务 ID 才做格式校验（字母数字、拒 '-'）；
+        // 存量值（含带 '-' 的旧 UUID）未改动时按不透明原样放行（FR-05），执行成功落盘沿用
+        String idInput = taskIdPanel.getDisplayedId();
+        String persisted = configStore.getSingleUploadTaskId();
+        if (!idInput.isEmpty() && !idInput.equals(persisted)
+                && !TaskIdGenerator.isValidNewId(idInput)) {
+            JOptionPane.showMessageDialog(contentPanel, lm.get("task.id.invalid"),
+                    lm.get("config.title"), JOptionPane.ERROR_MESSAGE);
             return;
         }
 
@@ -446,9 +562,10 @@ public class UploadDialog extends DialogWrapper {
 
     /**
      * 执行取消操作
+     * D-30C：改走 this.doCancelAction()（原直调 super 会绕过关窗确认守卫）
      */
     private void onCancel() {
-        super.doCancelAction();
+        doCancelAction();
     }
 
     /**

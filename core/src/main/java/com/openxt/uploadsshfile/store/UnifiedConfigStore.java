@@ -7,6 +7,7 @@ import com.openxt.uploadsshfile.config.PathConfig;
 import com.openxt.uploadsshfile.config.ServerConfig;
 import com.openxt.uploadsshfile.model.CommandConfig;
 import com.openxt.uploadsshfile.model.KeywordRules;
+import com.openxt.uploadsshfile.model.SingleUploadTask;
 import com.openxt.uploadsshfile.model.UnifiedPluginConfig;
 import com.openxt.uploadsshfile.model.UnifiedPluginConfig.BlacklistConfig;
 import com.openxt.uploadsshfile.util.PluginPathManager;
@@ -213,10 +214,21 @@ public class UnifiedConfigStore {
     public synchronized void deleteServer(String serverId) {
         cache.getServers().removeIf(s -> s.getId().equals(serverId));
         // 同时删除关联的路径配置
+        List<String> cascadePathIds = cache.getPaths().stream()
+                .filter(p -> p.getServerId().equals(serverId))
+                .map(PathConfig::getId)
+                .collect(Collectors.toList());
         cache.getPaths().removeIf(p -> p.getServerId().equals(serverId));
         // 如果删除的恰好是记忆的服务器，则清除记忆
         if (serverId != null && serverId.equals(cache.getLastSuccessfulServerId())) {
             cache.setLastSuccessfulServerId(null);
+        }
+        // D-37 快照联动：删除的服务器/被级联删除的路径若被关窗快照引用，清对应引用（不整体删槽——
+        // 文件清单与时机仍可用，重新选服务器后即可继续跑）
+        SingleUploadTask snap = cache.getSingleUploadTask();
+        if (snap != null) {
+            if (serverId != null && serverId.equals(snap.getServerId())) snap.setServerId(null);
+            if (snap.getPathId() != null && cascadePathIds.contains(snap.getPathId())) snap.setPathId(null);
         }
         save();
     }
@@ -291,6 +303,11 @@ public class UnifiedConfigStore {
         // 如果删除的恰好是记忆的路径，则清除记忆
         if (pathId != null && pathId.equals(cache.getLastSuccessfulPathId())) {
             cache.setLastSuccessfulPathId(null);
+        }
+        // D-37 快照联动：被删路径若被关窗快照引用则清引用（CLI 将以"配置不完整"早退点名）
+        SingleUploadTask snap = cache.getSingleUploadTask();
+        if (snap != null && pathId != null && pathId.equals(snap.getPathId())) {
+            snap.setPathId(null);
         }
         save();
     }
@@ -422,6 +439,11 @@ public class UnifiedConfigStore {
         if (configId != null && configId.equals(cache.getLastSuccessfulCommandConfigId())) {
             cache.setLastSuccessfulCommandConfigId(null);
         }
+        // D-37 快照联动（命令组可空跑，清引用不影响上传阶段）
+        SingleUploadTask snap = cache.getSingleUploadTask();
+        if (snap != null && configId != null && configId.equals(snap.getCommandConfigId())) {
+            snap.setCommandConfigId(null);
+        }
         save();
     }
     
@@ -459,6 +481,29 @@ public class UnifiedConfigStore {
     /** 落盘单例任务 ID（调用方保证已通过查重与"执行中禁改"检查，U-03/流程 E） */
     public synchronized void setSingleUploadTaskId(String taskId) {
         cache.setSingleUploadTaskId(taskId);
+        save();
+    }
+
+    // ========== 单任务关窗快照（D-37/D-38，1.0.8） ==========
+
+    /** 关窗快照；null＝从未关窗保存过（老配置缺字段 Gson 自愈为 null） */
+    public synchronized SingleUploadTask getSingleUploadTask() {
+        return cache.getSingleUploadTask();
+    }
+
+    /**
+     * 整体覆盖保存关窗快照（单槽语义，D-37 裁定）：UploadDialog 关窗统一入口调用。
+     * null 清单按空表处理；本方法不触碰 singleUploadTaskId（ID 落盘走面板 persist 与成功路径，时机独立）。
+     */
+    public synchronized void saveSingleUploadTask(List<String> filePaths, String serverId,
+                                                  String pathId, String commandConfigId, String timing) {
+        SingleUploadTask snap = new SingleUploadTask();
+        snap.setFilePaths(filePaths != null ? new ArrayList<>(filePaths) : new ArrayList<>());
+        snap.setServerId(serverId);
+        snap.setPathId(pathId);
+        snap.setCommandConfigId(commandConfigId);
+        snap.setTiming(timing);
+        cache.setSingleUploadTask(snap);
         save();
     }
 

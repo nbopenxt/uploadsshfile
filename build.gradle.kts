@@ -160,6 +160,18 @@ tasks.register("customPackagePlugin") {
                 Files.copy(jar.toPath(), libDir.resolve(jar.name).toPath(), StandardCopyOption.REPLACE_EXISTING)
                 println("Copied: ${project.name}/lib/${jar.name}")
             }
+
+        // 3b. D-39（2026-10-05 反转 D-23）：CLI 启动器 bat 随包——插件根目录静态文件，
+        //     字节必须与 core 内存模板 BatScriptTemplate.content() 一致（测试钉死）；
+        //     装/升级（含热载）后 CLI 直接可用，无需先点开菜单生成。
+        val distBat = file("dist/uploadsshfile-cli.bat")
+        if (distBat.exists()) {
+            Files.copy(distBat.toPath(), pluginDir.resolve("uploadsshfile-cli.bat").toPath(),
+                StandardCopyOption.REPLACE_EXISTING)
+            println("Copied: ${project.name}/uploadsshfile-cli.bat (D-39 packaged launcher)")
+        } else {
+            println("Warning: dist/uploadsshfile-cli.bat not found — store zip will lack the launcher (self-heal still writes it on IDE start)")
+        }
         
         // 4. 执行 zip 打包（使用 7z 存储模式，确保与 7z GUI 配置兼容）
         // 命名为 -store.zip，避免覆盖标准 buildPlugin 产物（市场上传件）
@@ -220,6 +232,46 @@ tasks.named("buildPlugin") {
 // 1.0.8 多模块：store zip 组装前必须已产出 core/cli 的 jar（customPackagePlugin 直读其 build/libs）
 tasks.named("customPackagePlugin") {
     dependsOn(":core:jar", ":cli:jar")
+}
+
+// ============================================
+// D-39（2026-10-05，反转 D-23）：标准 buildPlugin 包也随带 CLI 启动器 bat。
+// buildPlugin 的输入＝prepareSandbox 产物目录——2.18.1 实测落点＝项目根
+// .intellijPlatform/sandbox/<插件名>/<IDE 运行目录>/plugins/<插件名>/（build/idea-plugin
+// 假设系首跑炸出的臆测，按目录特征查找防 IDE 版本号漂移）；
+// 本任务依赖 prepareSandbox 完成后把 dist 静态 bat 复制进插件根目录，
+// buildPlugin 再依赖本任务——次序确定：组装→补 bat→zip。
+// bat 字节与 core 内存模板一致性由 BatScriptTemplateTest 钉死；IDE 侧自愈兜底
+// （IdeBootstrap.ensureCliBat）只在缺失/篡改时重写同款字节，正常安装零写盘。
+// Marketplace 结构风险备案：zip 内出现 lib/ 之外的根级条目属非惯例（历史 7z 包
+// 被拒先例是压缩格式而非多条目）；若市场校验拒收，处置＝bat 仅保留 -store.zip、
+// 标准包回退纯 lib 结构（IDE 首启生成旧路），届时另行裁定。
+// ============================================
+val packageCliBat = tasks.register("packageCliBat") {
+    dependsOn("prepareSandbox")
+    doLast {
+        val distBat = file("dist/uploadsshfile-cli.bat")
+        if (!distBat.exists()) {
+            throw GradleException("D-39: dist/uploadsshfile-cli.bat missing — refuse to ship package without launcher")
+        }
+        // 装配目录存在多个同构候选（plugins/、config-test/plugins/、plugins-test/…）——
+        // 逐一补 bat，无论 buildPlugin 取哪个都已覆盖（zip 内容以 unzip -l 实测复核）
+        val sandboxRoot = layout.projectDirectory.dir(".intellijPlatform/sandbox").asFile
+        val pluginDirs = sandboxRoot.walkTopDown().filter {
+            it.isDirectory && it.name == project.name && it.parentFile?.name == "plugins"
+        }.toList()
+        if (pluginDirs.isEmpty()) {
+            throw GradleException("D-39: no sandbox plugin dir under $sandboxRoot (prepareSandbox output missing?)")
+        }
+        pluginDirs.forEach { dir ->
+            Files.copy(distBat.toPath(), dir.resolve("uploadsshfile-cli.bat").toPath(),
+                StandardCopyOption.REPLACE_EXISTING)
+            println("D-39 packaged launcher: ${dir.relativeTo(projectDir)}/uploadsshfile-cli.bat (${distBat.length()} bytes)")
+        }
+    }
+}
+tasks.named("buildPlugin") {
+    dependsOn(packageCliBat)
 }
 
 // 运行 Shell Channel 测试任务

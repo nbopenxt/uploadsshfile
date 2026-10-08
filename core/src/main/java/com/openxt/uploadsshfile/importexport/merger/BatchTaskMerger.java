@@ -6,7 +6,7 @@ import com.openxt.uploadsshfile.util.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import com.openxt.uploadsshfile.model.TaskIdGenerator;
 
 /**
  * 批处理任务合并器。
@@ -33,7 +33,7 @@ public class BatchTaskMerger implements ConfigMerger<List<BatchTask>> {
                 Logger.debug("BatchTaskMerger", "Updated batch task: " + exportedTask.getName());
             } else {
                 BatchTask newTask = new BatchTask();
-                newTask.setId(UUID.randomUUID().toString());
+                newTask.setId(TaskIdGenerator.nextId());
                 newTask.setName(exportedTask.getName());
                 newTask.setCreateTime(System.currentTimeMillis());
                 newTask.setUpdateTime(System.currentTimeMillis());
@@ -54,7 +54,7 @@ public class BatchTaskMerger implements ConfigMerger<List<BatchTask>> {
 
         for (BatchSubTask src : subTasks) {
             BatchSubTask newSub = new BatchSubTask();
-            newSub.setId(UUID.randomUUID().toString());
+            newSub.setId(TaskIdGenerator.nextId());
 
             String newServerId = ctx.resolveServerId(src.getServerId());
             newSub.setServerId(newServerId != null ? newServerId : src.getServerId());

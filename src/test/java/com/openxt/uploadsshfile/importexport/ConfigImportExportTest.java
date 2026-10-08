@@ -115,9 +115,9 @@ public class ConfigImportExportTest {
         assertTrue(exportFile.exists());
         String json = Files.readString(exportFile.toPath());
 
-        // 验证 8 部分都存在（1.0.8/清单⑥：version 升至 3.1）
+        // 验证 8 部分都存在（1.0.8/清单⑥：3.1；D-37：3.2 增关窗快照）
         assertTrue(json.contains("\"version\""));
-        assertTrue(json.contains("\"3.1\""));
+        assertTrue(json.contains("\"3.2\""));
         assertTrue(json.contains("\"exportTime\""));
         assertTrue(json.contains("\"exportSource\""));
         assertTrue(json.contains("\"servers\""));
@@ -136,8 +136,46 @@ public class ConfigImportExportTest {
         exporter.export(exportFile);
 
         String json = Files.readString(exportFile.toPath());
-        // 1.0.8/D-11（清单⑥）：导出版本 3.1（含 5 个单任务上下文字段）
-        assertTrue(json.contains("\"version\": \"3.1\""));
+        // 1.0.8/D-11（清单⑥）3.1＝5 个单任务上下文字段；D-37 起 3.2＝再增关窗快照
+        assertTrue(json.contains("\"version\": \"3.2\""));
+    }
+
+    /** D-37/D-38：关窗快照导出导入——本机为空才采纳；上下文 id 走 merger 重映射；文件清单原样 */
+    @Test
+    public void testSnapshotAdoptedWithRemappedIdsOnlyWhenLocalEmpty() throws Exception {
+        store.getConfig().setSingleUploadTask(null);
+        store.save(store.getConfig());
+        String payloadJson = "{\"version\": \"3.2\", \"servers\": ["
+            + "{\"id\":\"srv-old-1\",\"name\":\"Snapped\",\"host\":\"h\",\"port\":22,\"username\":\"u\"}], "
+            + "\"paths\": [{\"id\":\"p-old-1\",\"serverId\":\"srv-old-1\",\"remotePath\":\"/tmp/snap\"}], "
+            + "\"commandConfigs\": [], \"batchTasks\": [], \"aiConfig\": {}, "
+            + "\"blacklist\": {}, \"keywordRules\": {}, \"hasOutputCommands\": {}, "
+            + "\"singleUploadTaskId\": \"7000000000000000777\", "
+            + "\"singleUploadTask\": {\"filePaths\":[\"E:\\\\a.txt\",\"E:\\\\dir\"],"
+            + "\"serverId\":\"srv-old-1\",\"pathId\":\"p-old-1\",\"commandConfigId\":null,\"timing\":\"AUTO\"}}";
+        Files.writeString(exportFile.toPath(), payloadJson);
+        ConfigImporter importer = new ConfigImporter(store, SecureStorage.getInstance());
+        importer.import_(exportFile);
+        com.openxt.uploadsshfile.model.SingleUploadTask snap = store.getConfig().getSingleUploadTask();
+        assertNotNull("本机空槽应采纳导入快照", snap);
+        assertEquals(2, snap.getFilePaths().size());
+        assertEquals("AUTO", snap.getTiming());
+        // 服务器/路径被新增（本机原无同名）→ 落新 UUID；快照引用必须已重映射到新 id
+        String importedServerId = store.getConfig().getServers().stream()
+                .filter(s -> "Snapped".equals(s.getName())).findFirst().orElseThrow().getId();
+        assertEquals(importedServerId, snap.getServerId());
+        assertTrue(!"srv-old-1".equals(snap.getServerId()));
+        String importedPathId = store.getConfig().getPaths().stream()
+                .filter(p -> "/tmp/snap".equals(p.getRemotePath())).findFirst().orElseThrow().getId();
+        assertEquals(importedPathId, snap.getPathId());
+
+        // 本机非空 → 保留本机（D-10 同口径）
+        store.getConfig().setSingleUploadTask(new com.openxt.uploadsshfile.model.SingleUploadTask());
+        store.save(store.getConfig());
+        Files.writeString(exportFile.toPath(), payloadJson);
+        importer.import_(exportFile);
+        assertEquals("本机已有快照不得被覆盖", 0,
+                store.getConfig().getSingleUploadTask().getFilePaths().size());
     }
 
     // ========== 1.0.8 AC-19 新增：版本拒绝与单任务 ID 采纳策略 ==========

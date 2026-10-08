@@ -55,7 +55,11 @@ public class CliRunner {
         public String pathId;
         public String commandConfigId;   // 可 null（GUI 曾"不选命令组"成功）
         public String timing;            // MANUAL/AUTO 字符串（不透明透传，判 AUTO 才执行命令）
-        public File file;                // --file 展开后的绝对路径
+        /**
+         * D-38：文件清单＝UploadDialog 关窗快照（D-37）的 filePaths 绝对路径列表——
+         * 取代 --file 单文件入参（旗标整体作废）。顺序逐个上传，任一失败即止并点名文件。
+         */
+        public java.util.List<String> filePaths;
         public String taskIdForLock;     // .info 展示用（锁占用回显"谁在持锁"）
     }
 
@@ -66,9 +70,16 @@ public class CliRunner {
     private final LanguageManager lang;
     private final DailyLogService logService;
     private final boolean verbose;
+    /** D-33：--yes＝目标确认自动通过（构建钩子/CI 场景）；false＝交互 y/N，无 stdin 默认中止 */
+    private final boolean autoConfirm;
 
     public CliRunner(EchoGuard echo, Prompter prompter, LanguageManager lang,
                      DailyLogService logService, boolean verbose) {
+        this(echo, prompter, lang, logService, verbose, false);
+    }
+
+    public CliRunner(EchoGuard echo, Prompter prompter, LanguageManager lang,
+                     DailyLogService logService, boolean verbose, boolean autoConfirm) {
         this.store = UnifiedConfigStore.getInstance();
         this.configManager = ConfigManager.getInstance();
         this.echo = echo;
@@ -76,11 +87,48 @@ public class CliRunner {
         this.lang = lang;
         this.logService = logService;
         this.verbose = verbose;
+        this.autoConfirm = autoConfirm;
+    }
+
+    /**
+     * D-33（2026-10-04 生产机误传事故）：执行前目标确认——列出本次将触达的全部
+     * "服务器:端口 用户 → 远端路径（文件数）"，要求人工 y；--yes 跳过并回显声明。
+     * 非交互（无 stdin）时 Prompter 返回 false＝中止（R36"默认中止"口径），
+     * 自动化必须显式加 --yes＝责任声明。ASCII 英文输出（AXIOM-B）。
+     */
+    private boolean confirmTargets(java.util.List<String> targets) {
+        echo.println("== Targets of this run ==");
+        for (String t : targets) {
+            echo.println("  - " + ascii(t));
+        }
+        if (autoConfirm) {
+            echo.println("(--yes specified) proceeding without confirmation");
+            return true;
+        }
+        return askWithGuard("Proceed uploading/executing commands to ALL targets above? (y/n) ");
     }
 
     // =================== 单任务 ===================
 
     public int runSingle(SingleContext ctx) {
+        // D-33（2026-10-04 生产机误传事故）：执行前列出目标并要求确认；
+        // --yes 跳过（构建钩子自动场景）；无 stdin 时 askYesNo 默认 false＝中止（R36 口径）
+        java.util.List<String> targets = new java.util.ArrayList<>();
+        try {
+            com.openxt.uploadsshfile.config.ServerConfig s = configManager.getServer(ctx.serverId);
+            com.openxt.uploadsshfile.config.PathConfig pc = s == null ? null : findPath(ctx.serverId, ctx.pathId);
+            // D-38：单任务清单行与批口径对齐——(k files) 计数（原单文件 file=名 作废）
+            int k = ctx.filePaths == null ? 0 : ctx.filePaths.size();
+            targets.add((s != null ? s.getHost() + ":" + s.getPort() + " user=" + s.getUsername() : "serverId=" + ctx.serverId)
+                    + " -> " + (pc != null ? pc.getRemotePath() : "pathId=" + ctx.pathId)
+                    + "  (" + k + " file[s])");
+        } catch (Throwable t) {
+            targets.add("target resolution failed: " + t);
+        }
+        if (!confirmTargets(targets)) {
+            echo.println("Aborted by target confirmation");
+            return ExitCodes.USER_ABORT;
+        }
         // M4 / R50+R42：GUI 与 CLI 共用同一把 serverId 分片锁；抢不到＝无上限排队，
         // 每秒回显持锁方（任务 ID/PID/已等秒）；中断/EOF 视为用户放弃→USER_ABORT(10)
         UploadLockManager.Handle lock;
@@ -113,29 +161,37 @@ public class CliRunner {
         if (path == null) {
             return fail(ExitCodes.PARAM, "path config not found for id: " + ctx.pathId);
         }
-        if (ctx.file == null || !ctx.file.exists()) {
-            return fail(ExitCodes.PARAM, "file not found: " + ctx.file);
+        if (ctx.filePaths == null || ctx.filePaths.isEmpty()) {
+            return fail(ExitCodes.PARAM, "single-task snapshot has no saved files "
+                    + "(right-click files in IDEA, open the Upload dialog and close it once to save the list)");
         }
         String password = configManager.getPassword(ctx.serverId);
         if (password == null || password.isEmpty()) {
             return fail(ExitCodes.UNKNOWN, "no stored password for server (save it in IDEA once first)");
         }
 
-        // —— 上传+校验（与 UploadAction 成功路径同序同口径） ——
+        // —— 上传+校验（与 UploadAction 成功路径同序同口径；D-38：快照清单顺序逐个，
+        //     任一文件缺失/失败即止并点名——参照批编排器 filePaths 循环先例） ——
         SftpService sftp = new SftpService();
-        int uploadCode;
         try {
             sftp.connect(server, password);
-            uploadCode = doUploadAndVerify(sftp, server, path, ctx.file);
+            for (String fp : ctx.filePaths) {
+                File f = fp == null ? null : new File(fp);
+                if (f == null || !f.exists()) {
+                    return fail(ExitCodes.PARAM, "saved file not found (stale snapshot entry): " + fp);
+                }
+                int uploadCode = doUploadAndVerify(sftp, server, path, f);
+                if (uploadCode != ExitCodes.OK) {
+                    echo.println("Stopped at failed file: " + ascii(fp));
+                    return uploadCode; // 文件失败即止（U-01：不落盘 ID 由 Main 成功路径控制）
+                }
+            }
         } catch (SftpException e) {
             return fail(ExitCodes.CONNECT, "connect/upload failed: " + e.getMessage());
         } catch (Exception e) {
             return fail(ExitCodes.UNKNOWN, "unexpected: " + e.getMessage());
         } finally {
             try { sftp.disconnect(); } catch (Exception ignore) { }
-        }
-        if (uploadCode != ExitCodes.OK) {
-            return uploadCode; // 文件失败即止（U-01：不落盘 ID 由 Main 成功路径控制）
         }
 
         // —— 命令组（timing==AUTO 且 id 非空才执行；G3 同口径） ——
@@ -177,6 +233,46 @@ public class CliRunner {
     public int runBatch(BatchTask task) {
         // M4 接线点：批处理按子任务逐台抢放锁（U-02）——BatchExecutionOrchestrator 内部子任务序列前接 UploadLockManager
 
+        // D-32：空子任务批次 execute() 会同步 return（无任何回调），若不短路 await 将永挂
+        if (task.getSubTasks() == null || task.getSubTasks().isEmpty()) {
+            return fail(ExitCodes.PARAM, "batch task has no sub-tasks - configure them in IDEA GUI first");
+        }
+        // D-30B（2026-10-04 CLI 批次实测）：启动前拦截"零文件子任务"——executeSubTask
+        // 对空文件清单必抛（GUI 同语义：批次子任务必须选过文件），构建钩子无人盯窗口，
+        // 与其跑起来报一句本地化文案不如在入口把缺文件的子任务编号一次点名清楚
+        java.util.List<String> emptyOnes = new java.util.ArrayList<>();
+        if (task.getSubTasks() != null) {
+            for (BatchSubTask st : task.getSubTasks()) {
+                if (st.getFilePaths() == null || st.getFilePaths().isEmpty()) {
+                    emptyOnes.add("[order " + st.getOrder() + " id " + st.getId() + "]");
+                }
+            }
+        }
+        if (!emptyOnes.isEmpty()) {
+            return fail(ExitCodes.PARAM, "batch sub-task(s) have no files selected: "
+                    + String.join(", ", emptyOnes)
+                    + " - open the task in IDEA GUI and add files, then re-run");
+        }
+
+        // D-33：批次逐子任务列出"服务器→路径→文件数"并要求确认（生产机误传事故防线）
+        java.util.List<String> targets = new java.util.ArrayList<>();
+        try {
+            for (BatchSubTask st : task.getSubTasks()) {
+                com.openxt.uploadsshfile.config.ServerConfig s = configManager.getServer(st.getServerId());
+                com.openxt.uploadsshfile.config.PathConfig pc = s == null ? null : findPath(st.getServerId(), st.getPathId());
+                targets.add("[order " + st.getOrder() + "] "
+                        + (s != null ? s.getHost() + ":" + s.getPort() + " user=" + s.getUsername() : "serverId=" + st.getServerId())
+                        + " -> " + (pc != null ? pc.getRemotePath() : "pathId=" + st.getPathId())
+                        + " (" + (st.getFilePaths() == null ? 0 : st.getFilePaths().size()) + " file[s])");
+            }
+        } catch (Throwable t) {
+            targets.add("target resolution failed: " + t);
+        }
+        if (!confirmTargets(targets)) {
+            echo.println("Aborted by target confirmation");
+            return ExitCodes.USER_ABORT;
+        }
+
         CliBatchListener listener = new CliBatchListener();
         BatchExecutionOrchestrator orchestrator = new BatchExecutionOrchestrator();
         orchestrator.setListener(listener);
@@ -184,9 +280,19 @@ public class CliRunner {
                 + (task.getSubTasks() == null ? 0 : task.getSubTasks().size()) + " sub-task[s]) ==");
         orchestrator.execute(task);
 
+        // D-32：等待批次收尾（无超时——上传时长不可预知，R42"等待不设上限"同口径；
+        // D-30A 兜底 catch 保证 completed/cancelled 必达，中断则按取消处理）
+        try {
+            listener.finishedLatch.await();
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return fail(ExitCodes.UNKNOWN, "interrupted while waiting for batch completion");
+        }
+
         List<BatchSubTaskResult> results = listener.results;
         if (results.isEmpty()) {
-            return fail(ExitCodes.UNCLASSIFIED, "batch produced no results");
+            // D-32 后此处理论不可达（await 返回即收尾已发生且至少收集 1 结果）——保留作防御
+            return fail(ExitCodes.UNCLASSIFIED, "batch produced no results (post-await invariant; report log)");
         }
         for (BatchSubTaskResult r : results) {
             if (r.getStatus() != null && !r.getStatus().name().equals("SUCCESS")) {
@@ -203,6 +309,13 @@ public class CliRunner {
     /** 批执行 CLI 监听：英文步骤行 + 结果收集（询问点沿用现状——批处理无 ask 语义，§3.2 补定 #3） */
     private final class CliBatchListener implements BatchExecutionListener {
         final java.util.List<BatchSubTaskResult> results = new java.util.ArrayList<>();
+        /**
+         * D-32（2026-10-04 真机批次竞态）：execute() 是 submit 异步 API（GUI 靠回调取结果），
+         * runBatch 原代码 execute() 后**立刻**读 results——恒空、误报 "batch produced no results"
+         * exit 1，而批次线程仍在后台跑；随后 System.exit 掐死执行中的上传＝远端半截文件竞态。
+         * 收尾回调（completed/cancelled 两路，D-30A 兜底保证必达）countDown，runBatch await。
+         */
+        final java.util.concurrent.CountDownLatch finishedLatch = new java.util.concurrent.CountDownLatch(1);
 
         @Override
         public void onBatchStart(BatchTask task, int totalSubTasks) {
@@ -230,11 +343,13 @@ public class CliRunner {
 
         @Override
         public void onBatchCompleted(java.util.List<BatchSubTaskResult> all) {
+            finishedLatch.countDown(); // D-32：收尾信号（results 已由 onSubTaskCompleted 收集）
         }
 
         @Override
         public void onBatchCancelled() {
             echo.println("== Batch cancelled ==");
+            finishedLatch.countDown(); // D-32
         }
 
         @Override

@@ -197,6 +197,27 @@ public class BatchExecutionOrchestratorTest {
         assertTrue(testListener.results.size() >= 3);
     }
 
+    // ========== D-30: 循环体兜底 catch——异常/错误不得再被 Future 静默吞 ==========
+
+    @Test
+    public void testLoopCatchAllTurnsCrashIntoVisibleFailedResult() throws Exception {
+        BatchTask task = createTaskWithSubTasks("Crash Test", 2);
+        testListener.throwOnFirstSubTaskStart = true; // 首个子任务回调期抛异常＝旧版吞进 Future 的场景
+
+        orchestrator.setListener(testListener);
+        orchestrator.execute(task);
+
+        // 旧行为＝onBatchCompleted 永不到达（results 空、CLI 报 "batch produced no results"）；
+        // 新行为＝crashed 子任务转 FAILED 结果、后续子任务照常执行、批收尾照常触发
+        boolean completed = testListener.completedLatch.await(10, TimeUnit.SECONDS);
+        assertTrue("batch completion must still fire (D-30 catch-all)", completed);
+        assertEquals("crashed(1) + second sub-task ran on(1)", 2, testListener.results.size());
+        BatchSubTaskResult crashed = testListener.results.get(0);
+        assertEquals(BatchSubTaskResult.Status.FAILED, crashed.getStatus());
+        assertTrue("error message must carry exception identity",
+                crashed.getErrorMessage().contains("IllegalStateException"));
+    }
+
     // ========== UT-06: 取消执行 ==========
 
     @Test
@@ -306,6 +327,8 @@ public class BatchExecutionOrchestratorTest {
         final AtomicInteger batchCompletedCount = new AtomicInteger(0);
         final AtomicBoolean cancelled = new AtomicBoolean(false);
         final List<BatchSubTaskResult> results = new ArrayList<>();
+        /** D-30：置真则首个 onSubTaskStart 抛异常（模拟回调/环境 Error，验证循环体兜底 catch） */
+        volatile boolean throwOnFirstSubTaskStart = false;
         final List<Integer> subTaskStartOrders = new ArrayList<>();
         
         // 进度跟踪相关（用于验证进度回调）
@@ -322,6 +345,9 @@ public class BatchExecutionOrchestratorTest {
 
         @Override
         public void onSubTaskStart(BatchSubTask subTask, int index, int total) {
+            if (throwOnFirstSubTaskStart && index == 1) {
+                throw new IllegalStateException("D-30 injected listener failure");
+            }
             subTaskStartCount.incrementAndGet();
             subTaskStartOrders.add(index);
             firstSubTaskLatch.countDown();

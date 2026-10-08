@@ -18,7 +18,7 @@ import static org.junit.Assert.*;
 /**
  * BatchTaskManager 单元测试
  * UT-01: 新增/查询/更新/删除批处理任务
- * UT-02: 复制任务：验证新 UUID、子任务完整复制
+ * UT-02: 复制任务：验证新编号（D-25 起雪花）、子任务完整复制
  * UT-03: 从失败创建任务：仅含失败子任务
  */
 public class BatchTaskManagerTest {
@@ -119,10 +119,10 @@ public class BatchTaskManagerTest {
         BatchTask copy = manager.copyBatchTask(original.getId(), "复制任务");
         assertNotNull(copy);
 
-        // 验证新 UUID
+        // 验证新编号（雪花）
         assertNotEquals(original.getId(), copy.getId());
 
-        // 验证子任务完整复制（新 UUID）
+        // 验证子任务完整复制（新编号，雪花）
         assertEquals(original.getSubTasks().size(), copy.getSubTasks().size());
         for (int i = 0; i < original.getSubTasks().size(); i++) {
             assertNotEquals(

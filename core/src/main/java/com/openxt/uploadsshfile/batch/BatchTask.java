@@ -1,8 +1,9 @@
 package com.openxt.uploadsshfile.batch;
 
+import com.openxt.uploadsshfile.model.TaskIdGenerator;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 批处理任务
@@ -16,7 +17,8 @@ public class BatchTask {
     private List<BatchSubTask> subTasks;
 
     public BatchTask() {
-        this.id = UUID.randomUUID().toString();
+        // D-25（FR-04）：新建默认雪花（纯数字、无 '-'）；存量 UUID 不迁移（R16）
+        this.id = TaskIdGenerator.nextId();
         this.name = "";
         this.createTime = System.currentTimeMillis();
         this.updateTime = this.createTime;

@@ -2,6 +2,7 @@ package com.openxt.uploadsshfile.ui;
 
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.openxt.uploadsshfile.batch.BatchSubTask;
 import com.openxt.uploadsshfile.batch.BatchTask;
 import com.openxt.uploadsshfile.batch.BatchTaskManager;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
@@ -155,6 +156,33 @@ public class BatchTaskDialog extends JDialog {
         BatchTask selected = getSelectedTask();
         if (selected == null) {
             Messages.showWarningDialog(this, lang.get("batch.task.noSubtask"), lang.get("common.warning"));
+            return;
+        }
+
+        // D-33（2026-10-04 生产机误传事故）：执行前列出全部"服务器→路径"目标并确认——
+        // 批次目标混着生产/测试机时，跑前一眼可见（CLI 侧同口径见 CliRunner.confirmTargets）
+        StringBuilder targets = new StringBuilder(lang.get("batch.confirm.targets")).append("\n");
+        com.openxt.uploadsshfile.config.ConfigManager cm = com.openxt.uploadsshfile.config.ConfigManager.getInstance();
+        for (BatchSubTask st : selected.getSubTasks()) {
+            com.openxt.uploadsshfile.config.ServerConfig s = cm.getServer(st.getServerId());
+            String remote = st.getPathId();
+            java.util.List<com.openxt.uploadsshfile.config.PathConfig> ps = cm.getPathsByServer(st.getServerId());
+            if (ps != null) {
+                for (com.openxt.uploadsshfile.config.PathConfig pc : ps) {
+                    if (pc.getId() != null && pc.getId().equals(st.getPathId())) {
+                        remote = pc.getRemotePath();
+                        break;
+                    }
+                }
+            }
+            targets.append("[").append(st.getOrder()).append("] ")
+                    .append(s != null ? s.getHost() + ":" + s.getPort() : st.getServerId())
+                    .append(" -> ").append(remote).append(" (")
+                    .append(st.getFilePaths() == null ? 0 : st.getFilePaths().size()).append(" file[s])\n");
+        }
+        int proceed = Messages.showYesNoDialog(this, targets.toString(),
+                lang.get("batch.confirm.proceed"), Messages.getQuestionIcon());
+        if (proceed != Messages.YES) {
             return;
         }
 

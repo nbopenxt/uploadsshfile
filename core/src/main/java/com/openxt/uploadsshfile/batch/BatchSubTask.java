@@ -1,8 +1,9 @@
 package com.openxt.uploadsshfile.batch;
 
+import com.openxt.uploadsshfile.model.TaskIdGenerator;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 批处理子任务
@@ -17,7 +18,8 @@ public class BatchSubTask {
     private int order;
 
     public BatchSubTask() {
-        this.id = UUID.randomUUID().toString();
+        // D-25（FR-04）：子任务行 ID 同口径雪花收口（内部行键，UI 不显示）
+        this.id = TaskIdGenerator.nextId();
         this.filePaths = new ArrayList<>();
         this.order = 0;
     }

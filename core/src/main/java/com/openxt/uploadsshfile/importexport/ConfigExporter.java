@@ -87,6 +87,8 @@ public class ConfigExporter {
         payload.setLastSuccessfulPathId(config.getLastSuccessfulPathId());
         payload.setLastSuccessfulCommandConfigId(config.getLastSuccessfulCommandConfigId());
         payload.setLastSuccessfulTiming(config.getLastSuccessfulTiming());
+        // 1.0.8/D-37：单任务关窗快照随导出（含文件清单——跨机绝对路径原样带，缺文件由 CLI 运行期点名）
+        payload.setSingleUploadTask(config.getSingleUploadTask());
 
         // 写入文件
         String json = gson.toJson(payload);

@@ -57,6 +57,13 @@ public class UnifiedPluginConfig {
      */
     private String singleUploadTaskId;
 
+    /**
+     * 单任务关窗快照（1.0.8 / D-37/D-38）：UploadDialog 关窗时整体覆盖保存的
+     * 文件清单与服务器/路径/命令组/时机；CLI 单任务的文件唯一来源。
+     * 缺省 null＝从未关窗保存过；与 lastSuccessful*（成功执行记忆）并存不互斥。
+     */
+    private SingleUploadTask singleUploadTask;
+
     /** 有返回命令列表（按操作系统分类） */
     private CommandOutputConfig hasOutputCommands;
 
@@ -240,6 +247,14 @@ public class UnifiedPluginConfig {
 
     public void setSingleUploadTaskId(String singleUploadTaskId) {
         this.singleUploadTaskId = singleUploadTaskId;
+    }
+
+    public SingleUploadTask getSingleUploadTask() {
+        return singleUploadTask;
+    }
+
+    public void setSingleUploadTask(SingleUploadTask singleUploadTask) {
+        this.singleUploadTask = singleUploadTask;
     }
 
     public CommandOutputConfig getHasOutputCommands() {

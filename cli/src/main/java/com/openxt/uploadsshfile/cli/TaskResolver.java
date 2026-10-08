@@ -9,8 +9,10 @@ import com.openxt.uploadsshfile.store.UnifiedConfigStore;
  * 任务定位（1.0.8 / FR-10，设计文档 §3.1）：
  * 先比 {@code singleUploadTaskId}（单例任务），再遍历 {@code BatchTask.id}；
  * 不透明字符串匹配——存量 UUID 与雪花 ID 共存（R16）；未命中＝PARAM(2)。
- * 单任务上下文＝现成 {@code getLastSuccessful*()} 四项（D-09），任一为 null＝PARAM(2)
- * 并提示"请先在 IDEA 中成功执行一次单次上传"（跨机场景由 D-11 导出字段解决）。
+ * D-38 起单任务上下文与文件清单＝**关窗快照优先**（D-37 落盘，含 filePaths），
+ * 快照缺失项回落 {@code lastSuccessful*} 成功记忆（D-09 旧语义保留、并存不互斥）；
+ * 服务器/路径引用仍为 null＝PARAM(2)；快照无文件清单＝PARAM(2) 点名"先在 GUI 开窗关窗保存清单"
+ * （旧提示"先成功执行一次"语义升级——现在关窗即算保存，无需先上传）。
  */
 public final class TaskResolver {
 
@@ -30,13 +32,24 @@ public final class TaskResolver {
 
         String singleId = store.getSingleUploadTaskId();
         if (singleId != null && singleId.equals(taskId)) {
-            String serverId = store.getLastSuccessfulServerId();
-            String pathId = store.getLastSuccessfulPathId();
-            String cmdId = store.getLastSuccessfulCommandConfigId();
-            String timing = store.getLastSuccessfulTiming();
+            com.openxt.uploadsshfile.model.SingleUploadTask snap = store.getSingleUploadTask();
+            // 快照优先、回落成功记忆（与 UploadDialog effective* 同口径）
+            String serverId = snap != null && snap.getServerId() != null
+                    ? snap.getServerId() : store.getLastSuccessfulServerId();
+            String pathId = snap != null && snap.getPathId() != null
+                    ? snap.getPathId() : store.getLastSuccessfulPathId();
+            String cmdId = snap != null && snap.getCommandConfigId() != null
+                    ? snap.getCommandConfigId() : store.getLastSuccessfulCommandConfigId();
+            String timing = snap != null && snap.getTiming() != null
+                    ? snap.getTiming() : store.getLastSuccessfulTiming();
             if (serverId == null || pathId == null) {
                 r.error = "single-task context incomplete (server/path not remembered). "
-                        + "Run a single upload successfully in IDEA once first.";
+                        + "Right-click files in IDEA, pick server/path in the Upload dialog and close it once.";
+                return r;
+            }
+            if (snap == null || snap.getFilePaths().isEmpty()) {
+                r.error = "single-task snapshot has no saved files. "
+                        + "Right-click files in IDEA, open the Upload dialog and close it once to save the list.";
                 return r;
             }
             CliRunner.SingleContext ctx = new CliRunner.SingleContext();
@@ -44,6 +57,7 @@ public final class TaskResolver {
             ctx.pathId = pathId;
             ctx.commandConfigId = cmdId;   // 可 null＝GUI 当时未选命令组
             ctx.timing = timing;
+            ctx.filePaths = new java.util.ArrayList<>(snap.getFilePaths()); // D-38：文件唯一来源＝关窗快照
             ctx.taskIdForLock = taskId;    // M4：.info 展示用
             r.single = ctx;
             return r;

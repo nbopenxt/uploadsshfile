@@ -60,10 +60,18 @@
         <notificationGroup id="UploadSSHFile.Snippet" displayType="TOAST_BALLOON"/>
     </extensions>
 
-    <!-- D-21（1.0.8）：项目打开时向 core 注入 IDEA 配置/日志目录实值（PluginPathManager.initialize） -->
+    <!-- D-26（1.0.8）：IDE 启动完成即注入路径并生成 CLI bat——早于项目打开，消除
+         "会话恢复后首次右键菜单实例化早于 projectOpened"竞态（class=实现类 topic=接口） -->
+    <applicationListeners>
+        <listener class="com.openxt.uploadsshfile.startup.IdeAppLifecycleListener"
+                  topic="com.intellij.ide.AppLifecycleListener"/>
+    </applicationListeners>
+
+    <!-- D-21（1.0.8）：项目打开时向 core 注入 IDEA 配置/日志目录实值（PluginPathManager.initialize）
+         D-26 后保留为幂等二道保险 -->
     <projectListeners>
-        <listener class="com.intellij.openapi.project.ProjectManagerListener"
-                  implementation="com.openxt.uploadsshfile.startup.IdeStartupActivity"/>
+        <listener class="com.openxt.uploadsshfile.startup.IdeStartupActivity"
+                  topic="com.intellij.openapi.project.ProjectManagerListener"/>
     </projectListeners>
 
     <actions>

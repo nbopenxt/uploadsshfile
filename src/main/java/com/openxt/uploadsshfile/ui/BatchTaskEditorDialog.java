@@ -9,6 +9,7 @@ import com.openxt.uploadsshfile.config.ConfigManager;
 import com.openxt.uploadsshfile.config.PathConfig;
 import com.openxt.uploadsshfile.config.ServerConfig;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
+import com.openxt.uploadsshfile.model.TaskIdGenerator;
 import com.openxt.uploadsshfile.store.StoreManager;
 import com.openxt.uploadsshfile.store.UnifiedConfigStore;
 
@@ -39,12 +40,13 @@ public class BatchTaskEditorDialog extends JDialog {
     /** 新建场景下"复制先定号"暂存 ID（D-15），onSave 统一随任务落库；编辑场景恒 null（直接写回 existingTask） */
     private String pendingTaskId;
 
-    /** ID 文本框初值：编辑＝现有 id（可能是存量 UUID 或雪花）；新建＝pendingTaskId（常为 null→空框） */
+    /** ID 文本框初值：编辑＝现有 id（可能是存量 UUID 或雪花）；新建＝pendingTaskId，无则
+     *  D-25（FR-04）开窗预填雪花默认值（仅显示不落盘，保存/复制时才查重落库） */
     private String initialEditorId() {
         if (existingTask != null) {
             return existingTask.getId();
         }
-        return pendingTaskId;
+        return pendingTaskId != null ? pendingTaskId : TaskIdGenerator.nextId();
     }
 
     public BatchTaskEditorDialog(JDialog parent, BatchTask existingTask, List<String> initialFilePaths) {
@@ -156,7 +158,14 @@ public class BatchTaskEditorDialog extends JDialog {
                 }
                 String cur = persistedId();
                 if (newId.equals(cur)) {
-                    return true;
+                    return true; // 存量原值回填＝视同未改号，按不透明放行（FR-05）
+                }
+                // D-25（FR-04 补注）：改号/新落盘值仅允许字母数字（拒 '-' 等符号）
+                if (!TaskIdGenerator.isValidNewId(newId)) {
+                    JOptionPane.showMessageDialog(BatchTaskEditorDialog.this,
+                            lang.get("task.id.invalid"), lang.get("common.warning"),
+                            JOptionPane.WARNING_MESSAGE);
+                    return false;
                 }
                 String owner = StoreManager.getInstance().getUnifiedConfigStore()
                         .findTaskIdOwner(newId, cur);
@@ -204,7 +213,20 @@ public class BatchTaskEditorDialog extends JDialog {
         editSubBtn.addActionListener(e -> onEditSubTask());
         deleteSubBtn.addActionListener(e -> onDeleteSubTask());
         saveBtn.addActionListener(e -> onSave());
-        cancelBtn.addActionListener(e -> dispose());
+        // D-30C（用户裁定）：关闭时存在"已改且非法"的任务 ID → 弹确认（值不会被落盘，
+        // 静默丢弃曾致"没提示也没保存"困惑）；继续关闭＝放弃修改，返回编辑＝留在窗口
+        cancelBtn.addActionListener(e -> {
+            if (taskIdPanel != null && taskIdPanel.hasInvalidPendingEdit()) {
+                int choice = JOptionPane.showConfirmDialog(this,
+                        lang.get("task.id.invalid.discard"),
+                        lang.get("common.warning"),
+                        JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+                if (choice != JOptionPane.YES_OPTION) {
+                    return;
+                }
+            }
+            dispose();
+        });
 
         setContentPane(mainPanel);
     }
@@ -277,6 +299,13 @@ public class BatchTaskEditorDialog extends JDialog {
         if (taskId != null && !taskId.equals(task.getId())) {
             if (BatchExecutionOrchestrator.isAnyBatchRunning()) {
                 JOptionPane.showMessageDialog(this, lang.get("task.id.running"),
+                        lang.get("common.warning"), JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            // D-25（FR-04 补注）：改号新值仅允许字母数字（拒 '-' 等符号）；未改号分支不校验（FR-05）。
+            // 判定顺序＝流程 E 既有口径：执行中 → 字符集 → 查重
+            if (!TaskIdGenerator.isValidNewId(taskId)) {
+                JOptionPane.showMessageDialog(this, lang.get("task.id.invalid"),
                         lang.get("common.warning"), JOptionPane.WARNING_MESSAGE);
                 return;
             }

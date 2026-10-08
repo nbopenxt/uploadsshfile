@@ -13,7 +13,8 @@ import java.nio.file.Paths;
  *
  * D-21（SRS V2.6）：本类位于 core 模块，禁止依赖 com.intellij。
  * IDEA 配置/日志根目录的实值只能由宿主进程取得，经 initialize() 一次性注入：
- *   - GUI：plugin 模块 IdeStartupActivity 以 PathManager 实值调用；
+ *   - GUI：plugin 模块 IdeBootstrap（D-26 起＝appStarted + 菜单入口 + projectOpened 三道
+ *     幂等保险，均为 PathManager 实值）；
  *   - CLI：cli.Main 解析 --config-dir / 由 bat %~dp0 反推后调用。
  * 未初始化即 getInstance() 抛带指引的 IllegalStateException（fail-fast，M1 出口自证项）。
  */
@@ -58,9 +59,9 @@ public class PluginPathManager {
     public static synchronized PluginPathManager getInstance() {
         if (instance == null) {
             throw new IllegalStateException(
-                "PluginPathManager not initialized. GUI: IdeStartupActivity must call initialize() with PathManager values "
-              + "(if you just installed the plugin, open a project in IDEA once first). "
-              + "CLI: cli.Main must call initialize() after parsing --config-dir / %~dp0 before any config access.");
+                "PluginPathManager not initialized. GUI normally auto-initializes via IdeBootstrap (appStarted / menu "
+              + "entries / projectOpened, D-26) — seeing this in the IDE means a regression: report idea.log near first "
+              + "use. CLI: cli.Main must call initialize() after parsing --config-dir / %~dp0 before any config access.");
         }
         return instance;
     }

@@ -321,16 +321,31 @@ public class SshCommandService {
         TimeoutManager promptTimeouts = prompter != null ? new TimeoutManager() : null;
         int exitCode = -1;
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-
+        // D-35（2026-10-04 AC-22 首跑实测）：档位改**区间计时**——距上一次询问经过
+        // ≥30s/60s/120s/之后每5min 才再问（需求文本"第2次1分钟"即区间语义；原实现拿
+        // 累计 elapsed 比 30/60/120/300 单值：用户离开期间档位被跨过→答 y 后连环补弹，
+        // count≥3 后 elapsed≥300 恒真→每 50ms 弹一次的风暴）。GUI/CLI 同经本循环，单点归正。
+        long lastAskAt = startTime;
         while (prompter != null || System.currentTimeMillis() - startTime < maxWaitTime) {
             if (promptTimeouts != null) {
-                long elapsed = System.currentTimeMillis() - startTime;
-                if (promptTimeouts.shouldPromptUser(elapsed)) {
+                long now = System.currentTimeMillis();
+                long elapsed = now - startTime;
+                if (now - lastAskAt >= promptTimeouts.getCurrentTimeout()) {
+                    lastAskAt = now;
                     if (!prompter.keepWaiting(command, elapsed)) {
                         Logger.debug("用户答否，跳出读流循环（elapsed=" + elapsed + "ms）");
                         break;
                     }
-                    promptTimeouts.incrementPromptCount(); // 进入下一档阈值，不设总上限（R42）
+                    // D-35：弹窗阻塞等输入期间命令可能已结束、退出标记正躺在缓冲里
+                    // （本会话 sleep 90 实证：答 y 后未消化积压→错过退出→误判失败）
+                    // ——答"继续"后先排空积压字节并检测退出标记，检出即正常收尾
+                    int pending = drainPendingExitCode(inputStream, baos);
+                    if (pending >= 0) {
+                        exitCode = pending;
+                        Logger.debug("检测到 exitcode: " + exitCode + " (prompted 期间积压消化)");
+                        break;
+                    }
+                    promptTimeouts.incrementPromptCount(); // 进入下一档区间，不设总上限（R42）
                 }
             }
             if (inputStream.available() > 0) {
@@ -375,6 +390,23 @@ public class SshCommandService {
         }
     }
     
+    /**
+     * D-35：排空流中已就绪（available 大于 0，不阻塞）的字节入 baos，随后整体扫描退出标记。
+     * @return 检出退出码；-1＝无标记（继续等待新输出）
+     * 包私有＝同包单测可达（SshCommandServiceDrainTest），不扩公共 API。
+     */
+    int drainPendingExitCode(java.io.InputStream in, java.io.ByteArrayOutputStream baos) throws java.io.IOException {
+        while (in.available() > 0) {
+            int b = in.read();
+            if (b == -1) {
+                break;
+            }
+            baos.write(b);
+        }
+        java.util.regex.Matcher m = EXIT_CODE_PATTERN.matcher(baos.toString(WINDOWS_CONPTY_CHARSET));
+        return m.find() ? Integer.parseInt(m.group(1)) : -1;
+    }
+
     /**
      * 根据 Shell 类型获取退出码命令（已废弃，使用约定格式）
      */

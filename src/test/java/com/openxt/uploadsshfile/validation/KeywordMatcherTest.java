@@ -4,6 +4,7 @@ import com.openxt.uploadsshfile.model.CommandResult;
 import com.openxt.uploadsshfile.model.EvaluationResult;
 import com.openxt.uploadsshfile.model.OperatingSystem;
 import com.openxt.uploadsshfile.store.UnifiedConfigStore;
+import com.openxt.uploadsshfile.util.PluginPathManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,6 +20,16 @@ public class KeywordMatcherTest {
     
     @Before
     public void setUp() {
+        // D-29 修 M1 潜伏雷（同 BlacklistValidatorTest）：本类经 KeywordMatcher→
+        // UnifiedConfigStore→PluginPathManager 依赖注入态却从未自行 initialize——
+        // 此前"全绿"依赖其它测试先置全局态；采用测试 JVM 单一约定值跨类同值幂等合并
+        PluginPathManager.initialize(
+                java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "uploadsshfile-test-inject"),
+                java.nio.file.Paths.get(System.getProperty("java.io.tmpdir"), "uploadsshfile-test-inject"));
+        // D-29：本类断言依赖英文 reason 文案（"Exit code: 1"）——语言单例是记录在案的全量跑
+        // 污染源（tmp 遗留 json/前序测试切语言均可致 reason 本地化），测试自带语言态、
+        // 与全局隔离（forceLanguageNoPersist 仅内存不落盘，CLI 同源用法 Main.java:75）
+        com.openxt.uploadsshfile.i18n.LanguageManager.getInstance().forceLanguageNoPersist("en");
         matcher = new KeywordMatcher();
     }
     

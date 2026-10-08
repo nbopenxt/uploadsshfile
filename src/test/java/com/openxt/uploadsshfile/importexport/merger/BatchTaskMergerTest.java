@@ -49,7 +49,7 @@ public class BatchTaskMergerTest {
         // 新增
         assertEquals(1, result.size());
         BatchTask added = result.get(0);
-        assertNotEquals("exp-batch-1", added.getId()); // 新 UUID
+        assertNotEquals("exp-batch-1", added.getId()); // 新编号（D-25 起雪花）
         assertEquals("Daily Deploy", added.getName());
 
         // 子任务 ID 全部重映射

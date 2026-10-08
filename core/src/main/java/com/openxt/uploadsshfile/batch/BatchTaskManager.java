@@ -6,7 +6,7 @@ import com.openxt.uploadsshfile.util.Logger;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
+import com.openxt.uploadsshfile.model.TaskIdGenerator;
 
 /**
  * 批处理任务配置管理器。
@@ -63,7 +63,7 @@ public class BatchTaskManager {
 
         // ID 为空时自动生成
         if (task.getId() == null || task.getId().isEmpty()) {
-            task.setId(UUID.randomUUID().toString());
+            task.setId(TaskIdGenerator.nextId());
         }
 
         List<BatchTask> tasks = listBatchTasks();
@@ -85,13 +85,13 @@ public class BatchTaskManager {
         Logger.debug("BatchTaskManager", "saveBatchTask completed");
     }
 
-    /** 复制已有批处理任务 → 生成新 UUID 的新任务 */
+    /** 复制已有批处理任务 → 生成新雪花编号的新任务（D-25 收口，原 UUID 弃用） */
     public BatchTask copyBatchTask(String sourceId, String newName) {
         BatchTask source = getBatchTask(sourceId);
         if (source == null) return null;
 
         BatchTask copy = new BatchTask();
-        copy.setId(UUID.randomUUID().toString());
+        copy.setId(TaskIdGenerator.nextId());
         copy.setName(newName);
         copy.setCreateTime(System.currentTimeMillis());
         copy.setUpdateTime(System.currentTimeMillis());
@@ -100,7 +100,7 @@ public class BatchTaskManager {
         if (source.getSubTasks() != null) {
             for (BatchSubTask srcSub : source.getSubTasks()) {
                 BatchSubTask newSub = new BatchSubTask();
-                newSub.setId(UUID.randomUUID().toString());
+                newSub.setId(TaskIdGenerator.nextId());
                 newSub.setServerId(srcSub.getServerId());
                 newSub.setPathId(srcSub.getPathId());
                 newSub.setCommandConfigId(srcSub.getCommandConfigId());
@@ -128,7 +128,7 @@ public class BatchTaskManager {
         if (failures == null || failures.isEmpty()) return null;
 
         BatchTask task = new BatchTask();
-        task.setId(UUID.randomUUID().toString());
+        task.setId(TaskIdGenerator.nextId());
         task.setName(newName);
 
         List<BatchSubTask> subTasks = new ArrayList<>();
@@ -142,7 +142,7 @@ public class BatchTaskManager {
                 BatchSubTask original = findOriginalSubTask(allTasks, failure.getSubTaskId());
                 if (original != null) {
                     BatchSubTask copy = new BatchSubTask();
-                    copy.setId(UUID.randomUUID().toString());
+                    copy.setId(TaskIdGenerator.nextId());
                     copy.setServerId(original.getServerId());
                     copy.setPathId(original.getPathId());
                     copy.setCommandConfigId(original.getCommandConfigId());

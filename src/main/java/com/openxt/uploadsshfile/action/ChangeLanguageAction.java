@@ -4,6 +4,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.actionSystem.ToggleAction;
 import com.intellij.openapi.ui.Messages;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
+import com.openxt.uploadsshfile.startup.IdeBootstrap;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -23,6 +24,9 @@ public class ChangeLanguageAction extends ToggleAction {
 
     @Override
     public boolean isSelected(@NotNull AnActionEvent e) {
+        // D-26：勾选态渲染发生在菜单展开期，统一入口幂等保证路径注入
+        // D-31：ensureReady＝注入＋bat 自愈（热载半生态点菜单即补齐）
+        IdeBootstrap.ensureReady();
         return LanguageManager.getInstance().getCurrentLanguage().equals(languageCode);
     }
 

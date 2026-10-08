@@ -4,6 +4,7 @@ import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.project.Project;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
+import com.openxt.uploadsshfile.startup.IdeBootstrap;
 import com.openxt.uploadsshfile.ui.AIConfigDialog;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,6 +19,9 @@ public class OpenAIConfigDialogAction extends AnAction {
     
     @Override
     public void update(@NotNull AnActionEvent e) {
+        // D-26：菜单展开可早于 projectOpened/appStarted，统一入口幂等保证路径注入
+        // D-31：ensureReady＝注入＋bat 自愈（热载半生态点菜单即补齐）
+        IdeBootstrap.ensureReady();
         LanguageManager lm = LanguageManager.getInstance();
         e.getPresentation().setText(lm.get("ai.config.menu"));
         e.getPresentation().setDescription(lm.get("ai.config.menu.desc"));

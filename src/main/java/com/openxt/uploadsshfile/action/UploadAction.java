@@ -22,6 +22,7 @@ import com.openxt.uploadsshfile.orchestration.CommandOrchestrator;
 import com.openxt.uploadsshfile.orchestration.ExecutionListener;
 import com.openxt.uploadsshfile.persistence.SecureStorage;
 import com.openxt.uploadsshfile.sftp.SftpException;
+import com.openxt.uploadsshfile.startup.IdeBootstrap;
 import com.openxt.uploadsshfile.store.StoreManager;
 import com.openxt.uploadsshfile.store.UnifiedConfigStore;
 import com.openxt.uploadsshfile.sftp.SftpService;
@@ -62,6 +63,10 @@ public class UploadAction extends AnAction {
 
     public UploadAction() {
         super();
+        // D-26：action 实例化可发生在 projectOpened/appStarted 之前（会话恢复后首次右键菜单，
+        // 2026-10-04 实测红气球），构造体触达存储单例前先幂等注入路径
+        // D-31：顺带 bat 自愈（热载半生态下点一次菜单即补齐，外部直敲 CLI 不再踩空）
+        IdeBootstrap.ensureReady();
         this.sftpService = new SftpService();
         this.configManager = ConfigManager.getInstance();
         this.lm = LanguageManager.getInstance();
@@ -92,36 +97,46 @@ public class UploadAction extends AnAction {
         List<String> selectedPaths = getSelectedPaths(e);
         Logger.debug("UploadAction", "Selected paths count: " + selectedPaths.size());
 
+        // D-37：开窗清单来源——右键新选（存在时覆盖默认）；空选回放关窗快照清单；
+        // 空选且无已存清单＝维持旧拦截提示。
+        List<String> initialPaths;
         if (selectedPaths.isEmpty()) {
-            Messages.showInfoMessage(project, lm.get("action.upload.select.files"), lm.get("warning.title"));
-            return;
-        }
+            com.openxt.uploadsshfile.model.SingleUploadTask snap =
+                    StoreManager.getInstance().getUnifiedConfigStore().getSingleUploadTask();
+            if (snap == null || snap.getFilePaths().isEmpty()) {
+                Messages.showInfoMessage(project, lm.get("action.upload.select.files"), lm.get("warning.title"));
+                return;
+            }
+            Logger.debug("UploadAction", "Empty selection with saved snapshot: replay " + snap.getFilePaths().size() + " file(s)");
+            initialPaths = new ArrayList<>(snap.getFilePaths());
+        } else {
+            // 过滤有效的文件（使用 VirtualFile 的 exists 检查）
+            List<String> validPaths = new ArrayList<>();
+            VirtualFile[] virtualFiles = e.getData(LangDataKeys.VIRTUAL_FILE_ARRAY);
 
-        // 过滤有效的文件（使用 VirtualFile 的 exists 检查）
-        List<String> validPaths = new ArrayList<>();
-        VirtualFile[] virtualFiles = e.getData(LangDataKeys.VIRTUAL_FILE_ARRAY);
-
-        if (virtualFiles != null) {
-            Logger.debug("UploadAction", "Virtual files count: " + virtualFiles.length);
-            for (VirtualFile vf : virtualFiles) {
-                Logger.debug("UploadAction", "  File: " + vf.getPath() + ", exists=" + vf.exists());
-                if (vf.exists()) {
-                    validPaths.add(vf.getPath());
+            if (virtualFiles != null) {
+                Logger.debug("UploadAction", "Virtual files count: " + virtualFiles.length);
+                for (VirtualFile vf : virtualFiles) {
+                    Logger.debug("UploadAction", "  File: " + vf.getPath() + ", exists=" + vf.exists());
+                    if (vf.exists()) {
+                        validPaths.add(vf.getPath());
+                    }
                 }
             }
-        }
 
-        Logger.debug("UploadAction", "Valid paths count: " + validPaths.size());
+            Logger.debug("UploadAction", "Valid paths count: " + validPaths.size());
 
-        if (validPaths.isEmpty()) {
-            Messages.showInfoMessage(project, lm.get("action.upload.no.valid.files"), lm.get("warning.title"));
-            return;
+            if (validPaths.isEmpty()) {
+                Messages.showInfoMessage(project, lm.get("action.upload.no.valid.files"), lm.get("warning.title"));
+                return;
+            }
+            initialPaths = validPaths;
         }
 
         // 显示上传目标选择对话框
         Logger.debug("UploadAction", "Creating UploadDialog...");
         Window window = WindowManager.getInstance().getFrame(project);
-        UploadDialog uploadDialog = new UploadDialog(window, validPaths);
+        UploadDialog uploadDialog = new UploadDialog(window, initialPaths);
         
         // 设置执行命令组回调处理"执行命令组"按钮
         uploadDialog.setExecuteCommandsCallback(ctx -> {
@@ -163,8 +178,9 @@ public class UploadAction extends AnAction {
             return;
         }
 
-        // 执行上传（1.0.8/FR-06：携带对话框任务 ID 值，上传全部成功且校验通过后落盘——U-01）
-        executeUpload(project, validPaths, server, path, password, uploadDialog.getTaskIdValue(), lockHandle);
+        // 执行上传（1.0.8/FR-06：携带对话框任务 ID 值，上传全部成功且校验通过后落盘——U-01；
+        // D-37：清单以对话框实态为单点数据源——右键新选或空选回放快照）
+        executeUpload(project, uploadDialog.getUploadPaths(), server, path, password, uploadDialog.getTaskIdValue(), lockHandle);
     }
 
     /**

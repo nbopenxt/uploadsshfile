@@ -11,6 +11,12 @@ plugins {
 
 group = "com.openxt"
 
+// D-28：cli 首单测（ArgumentParserTest）需解析 junit——本模块无仓库声明即解析失败
+// （root 的 repositories 不向子项目传导；core 同理需自带声明）
+repositories {
+    mavenCentral()
+}
+
 dependencies {
     implementation(project(":core"))
     testImplementation("junit:junit:4.13.2")

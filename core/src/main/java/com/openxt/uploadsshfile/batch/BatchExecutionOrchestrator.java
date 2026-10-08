@@ -84,6 +84,12 @@ public class BatchExecutionOrchestrator {
                 if (cancelling.get()) break;
 
                 BatchSubTask subTask = subTasks.get(i);
+                // D-30（2026-10-04 CLI 批次实测"batch produced no results"）：整段循环体兜底 catch。
+                // 原 executeSubTask 的 catch(Exception) 挡不住 Error（热载半生态下 new SftpService()
+                // 抛 NoClassDefFoundError——构造在方法内 try 之前）；异常逃出后被
+                // executor.submit 吞进无人 get() 的 Future＝静默死批（无堆栈、无回调、GUI 卡"运行中"）。
+                // 兜底＝转 FAILED 结果照常回调（失败必须可见），堆栈落日志，批次继续后续子任务。
+                try {
                 if (listener != null) {
                     listener.onSubTaskStart(subTask, i + 1, subTasks.size());
                 }
@@ -151,6 +157,30 @@ public class BatchExecutionOrchestrator {
                 }
                 if (lockInfraError) {
                     break;
+                }
+                } catch (Throwable loopFail) {
+                    BatchSubTaskResult crashed = new BatchSubTaskResult();
+                    crashed.setSubTaskId(subTask.getId());
+                    crashed.setTaskDescription(subTask.getServerId() + "/" + subTask.getPathId());
+                    crashed.setStatus(BatchSubTaskResult.Status.FAILED);
+                    crashed.setErrorMessage(loopFail.getClass().getName() + ": " + loopFail.getMessage());
+                    Logger.error("BatchExecutionOrchestrator",
+                            "SubTask crashed unexpectedly (D-30 catch-all): " + subTask.getId()
+                                    + " -> " + loopFail.getClass().getName() + ": " + loopFail.getMessage());
+                    java.util.Arrays.stream(loopFail.getStackTrace()).limit(8)
+                            .forEach(el -> Logger.error("BatchExecutionOrchestrator", "    at " + el));
+                    results.add(crashed);
+                    // D-30：兜底路径的回调自身也要防护（listener 故障不得再吞批次收尾），
+                    // 否则"坏 listener"仍复现静默死批
+                    try {
+                        if (listener != null) {
+                            listener.onSubTaskCompleted(crashed);
+                            listener.onLog("Sub-task crashed: " + crashed.getErrorMessage());
+                        }
+                    } catch (Throwable secondary) {
+                        Logger.error("BatchExecutionOrchestrator",
+                                "listener failed on crash-notify (ignored to keep batch alive): " + secondary);
+                    }
                 }
             }
 
@@ -353,10 +383,12 @@ public class BatchExecutionOrchestrator {
             result.setStatus(BatchSubTaskResult.Status.SUCCESS);
             Logger.debug("BatchExecutionOrchestrator", "SubTask completed successfully: " + subTask.getId());
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // D-30：Exception→Throwable——热载/依赖缺失类故障以 Error 形态出现
+            // （NoClassDefFoundError 等），原 catch(Exception) 放行致上层静默吞
             result.setStatus(BatchSubTaskResult.Status.FAILED);
-            result.setErrorMessage(e.getMessage());
-            Logger.error("BatchExecutionOrchestrator", "SubTask failed: " + subTask.getId() + ", error: " + e.getMessage());
+            result.setErrorMessage(e.getClass().getName() + ": " + e.getMessage());
+            Logger.error("BatchExecutionOrchestrator", "SubTask failed: " + subTask.getId() + ", error: " + e);
             if (listener != null) {
                 listener.onLog("\n" + lm.get("execution.error", e.getMessage()));
             }

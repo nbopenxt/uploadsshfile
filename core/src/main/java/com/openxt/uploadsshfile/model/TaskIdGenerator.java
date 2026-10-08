@@ -43,9 +43,29 @@ public class TaskIdGenerator implements Serializable {
         return instance;
     }
 
-    /** 生成下一个任务 ID（字符串形态，不透明） */
+    /** 生成下一个任务 ID（字符串形态，不透明；输出恒为纯数字，天然不含 '-'） */
     public static String nextId() {
         return String.valueOf(getInstance().nextIdLong());
+    }
+
+    /**
+     * 新值字符集校验（D-25，SRS FR-04/05 补注）：用户新建/手改/复制落盘的任务 ID 仅允许
+     * 字母与数字，拒绝 '-'、空格及其他符号——生成侧（{@link #nextId()}）天然满足。
+     * 仅用于"新值"；存量 UUID（含 '-'）按不透明字符串共存（FR-05），不得以本方法校验
+     * 存量匹配/放行，否则 1.0.8 前的数据一保存即自杀。
+     */
+    public static boolean isValidNewId(String id) {
+        if (id == null || id.isEmpty()) {
+            return false;
+        }
+        for (int i = 0; i < id.length(); i++) {
+            char c = id.charAt(i);
+            boolean ok = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+            if (!ok) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**

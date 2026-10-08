@@ -6,6 +6,7 @@ import com.openxt.uploadsshfile.batch.BatchTask;
 import com.openxt.uploadsshfile.model.AIConfig;
 import com.openxt.uploadsshfile.model.CommandConfig;
 import com.openxt.uploadsshfile.model.KeywordRules;
+import com.openxt.uploadsshfile.model.SingleUploadTask;
 import com.openxt.uploadsshfile.model.UnifiedPluginConfig;
 
 import java.util.List;
@@ -15,7 +16,7 @@ import java.util.List;
  * 独立于 UnifiedPluginConfig，包含导出元数据和加密密码。
  */
 public class ExportPayload {
-    private String version;             // 1.0.8 起 "3.1"（新增 5 字段；旧插件读 3.1 一律拒绝导入，补定②）
+    private String version;             // 1.0.8 起 "3.1"（新增 5 字段；旧插件读 3.1 一律拒绝导入，补定②）；D-37 起 "3.2"（新增关窗快照）
     private String exportTime;          // ISO 8601 格式
     private String exportSource;        // "UploadSSHFile Plugin"
 
@@ -30,6 +31,9 @@ public class ExportPayload {
     private String lastSuccessfulCommandConfigId;
     private String lastSuccessfulTiming;
 
+    /** 1.0.8 / D-37：单任务关窗快照（文件清单+上下文引用）。旧导出无此字段→Gson 补 null 兼容 */
+    private SingleUploadTask singleUploadTask;
+
     private List<ServerConfig> servers;
     private List<PathConfig> paths;
     private List<CommandConfig> commandConfigs;
@@ -40,12 +44,15 @@ public class ExportPayload {
     private UnifiedPluginConfig.CommandOutputConfig hasOutputCommands;
 
     public ExportPayload() {
-        this.version = "3.1";
+        this.version = "3.2";
         this.exportSource = "UploadSSHFile Plugin";
     }
 
     public String getSingleUploadTaskId() { return singleUploadTaskId; }
     public void setSingleUploadTaskId(String v) { this.singleUploadTaskId = v; }
+
+    public SingleUploadTask getSingleUploadTask() { return singleUploadTask; }
+    public void setSingleUploadTask(SingleUploadTask v) { this.singleUploadTask = v; }
     public String getLastSuccessfulServerId() { return lastSuccessfulServerId; }
     public void setLastSuccessfulServerId(String v) { this.lastSuccessfulServerId = v; }
     public String getLastSuccessfulPathId() { return lastSuccessfulPathId; }

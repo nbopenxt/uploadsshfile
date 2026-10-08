@@ -4,10 +4,12 @@ import com.openxt.uploadsshfile.model.OperatingSystem;
 import com.openxt.uploadsshfile.model.UnifiedPluginConfig;
 import com.openxt.uploadsshfile.model.ValidationResult;
 import com.openxt.uploadsshfile.store.UnifiedConfigStore;
+import com.openxt.uploadsshfile.util.PluginPathManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,9 +25,16 @@ public class BlacklistValidatorTest {
     
     @Before
     public void setUp() {
+        // D-29 修 M1 潜伏雷：本类经 BlacklistValidator→UnifiedConfigStore→PluginPathManager
+        // 链路依赖注入态，但从未自行 initialize（1.0.7 前 PathManager 直取恒可用故无感；
+        // M1 fail-fast 后单跑本类必炸，此前全绿纯靠其它测试先初始化的顺序运气）。
+        // 全测试 JVM 单一约定值（与 BatchExecutionOrchestratorTest 等既有注入同值）——
+        // 异值 initialize 会触发"第二控制点"拒绝，跨类必须同值幂等合并
+        PluginPathManager.initialize(testInjectRoot(), testInjectRoot());
+
         // 使用默认黑名单配置
         blacklistConfig = new UnifiedPluginConfig.BlacklistConfig();
-        
+
         // 创建测试专用的 UnifiedConfigStore
         validator = new BlacklistValidator();
     }
@@ -33,6 +42,11 @@ public class BlacklistValidatorTest {
     @After
     public void tearDown() {
         UnifiedConfigStore.resetInstance();
+    }
+
+    /** 测试 JVM 全局约定的注入根（tmp/uploadsshfile-test-inject，跨类同值） */
+    static java.nio.file.Path testInjectRoot() {
+        return Paths.get(System.getProperty("java.io.tmpdir"), "uploadsshfile-test-inject");
     }
     
     @Test

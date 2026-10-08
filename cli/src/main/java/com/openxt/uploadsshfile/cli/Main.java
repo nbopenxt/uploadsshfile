@@ -38,7 +38,19 @@ public final class Main {
     }
 
     private static int run(String[] args) {
-        PrintStream out = new PrintStream(System.out, true, StandardCharsets.UTF_8);
+        // D-29（2026-10-04 GBK 控制台中文路径乱码实证）：AXIOM-B"输出全英文 ASCII"管不住
+        // Input:/error: 等**回显用户路径**的行——写死 UTF-8 包装在 GBK 控制台上即乱码
+        // （鎴戠殑閰风洏型）。跟随控制台实际编码（JEP 400：stdout.encoding，退 native，
+        // 再退 UTF-8）；直写 FileDescriptor.out 避免在既有 System.out 编码上二次包装。
+        String consoleEncoding = System.getProperty("stdout.encoding",
+                System.getProperty("native.encoding", StandardCharsets.UTF_8.name()));
+        PrintStream out;
+        try {
+            out = new PrintStream(new java.io.FileOutputStream(java.io.FileDescriptor.out),
+                    true, consoleEncoding);
+        } catch (java.io.UnsupportedEncodingException fallback) {
+            out = System.out;
+        }
 
         ArgumentParser.Parsed p = ArgumentParser.parse(args);
         if (p.error != null) {
@@ -111,34 +123,26 @@ public final class Main {
             return ExitCodes.PARAM;
         }
 
-        // —— 类型相关校验（FR-10/R26）——
-        if (r.isBatch && p.fileSeen) {
-            out.println("error: --file must not be passed for batch tasks");
-            return ExitCodes.PARAM;
-        }
-        if (!r.isBatch && !p.fileSeen) {
-            out.println("error: --file is required for the single upload task");
-            return ExitCodes.PARAM;
-        }
-
-        // —— 单任务首行回显绝对路径+大小（FR-11）——
-        File file = null;
+        // D-38：--file 旗标整体作废（解析器按未知旗标拒绝）；单任务文件清单＝关窗快照（D-37）。
+        // —— 单任务：逐文件回显绝对路径+大小（FR-11 口径扩展到多文件）并前置存在性检查
+        //（缺失＝PARAM(2)，在抢锁/触网之前点名，防"半截上传"）——
         if (!r.isBatch) {
-            file = p.file;
-            if (!file.exists()) {
-                out.println("error: --file does not exist: " + file.getAbsolutePath());
-                return ExitCodes.PARAM;
+            for (String fp : r.single.filePaths) {
+                File f = fp == null ? null : new File(fp);
+                if (f == null || !f.exists()) {
+                    out.println("error: saved file not found (stale snapshot entry): " + fp);
+                    return ExitCodes.PARAM;
+                }
+                out.println("Input: " + f.getAbsolutePath() + " (" + sizeOf(f) + " bytes)");
             }
-            out.println("Input: " + file.getAbsolutePath() + " (" + sizeOf(file) + " bytes)");
         }
 
-        CliRunner runner = new CliRunner(echo, new ConsoleInteraction(out), lm, logService, p.verbose);
+        CliRunner runner = new CliRunner(echo, new ConsoleInteraction(out), lm, logService, p.verbose, p.assumeYes); // D-33：--yes
 
         int code;
         if (r.isBatch) {
             code = runner.runBatch(r.batchTask);
         } else {
-            r.single.file = file;
             code = runner.runSingle(r.single);
         }
 
@@ -152,6 +156,16 @@ public final class Main {
             }
         }
         out.println("RESULT: exit " + code);
+        // D-29c（用户裁定 2026-10-04）：默认成功不 pause（全自动场景），失败由 bat 层 pause；
+        // --keep-open ＝人工查看场景，本进程内等一次回车（stdin 被重定向时 read 即 EOF，不卡）
+        if (p.keepOpen) {
+            out.println("Press Enter to finish (--keep-open)...");
+            try {
+                System.in.read();
+            } catch (java.io.IOException ignore) {
+                // stdin 关闭/重定向＝无法交互，径直退出
+            }
+        }
         return code;
     }
 

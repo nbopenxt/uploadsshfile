@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.openxt.uploadsshfile.config.ServerConfig;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
 import com.openxt.uploadsshfile.importexport.merger.*;
+import com.openxt.uploadsshfile.model.SingleUploadTask;
 import com.openxt.uploadsshfile.model.UnifiedPluginConfig;
 import com.openxt.uploadsshfile.persistence.SecureStorage;
 import com.openxt.uploadsshfile.store.UnifiedConfigStore;
@@ -24,7 +25,7 @@ import java.util.Map;
  */
 public class ConfigImporter {
 
-    private static final String SUPPORTED_VERSION = "3.1";
+    private static final String SUPPORTED_VERSION = "3.2";
 
     private final UnifiedConfigStore configStore;
     private final SecureStorage secureStorage;
@@ -158,6 +159,20 @@ public class ConfigImporter {
             if (isBlank(current.getLastSuccessfulTiming()) && !isBlank(exported.getLastSuccessfulTiming())) {
                 current.setLastSuccessfulTiming(exported.getLastSuccessfulTiming());
             }
+            // D-37 关窗快照：本机为空才采纳；上下文 id 按 merger 重映射，解析不出→该引用置 null
+            //（CLI 将以"配置不完整"早退点名，与 lastSuccessful* 的"不采纳"不同层：快照是执行依据，宁可残缺可见也不静默丢弃）
+            if (current.getSingleUploadTask() == null && exported.getSingleUploadTask() != null) {
+                SingleUploadTask src = exported.getSingleUploadTask();
+                SingleUploadTask snap = new SingleUploadTask();
+                snap.setFilePaths(src.getFilePaths() != null
+                        ? new ArrayList<>(src.getFilePaths()) : new ArrayList<>());
+                snap.setServerId(isBlank(src.getServerId()) ? null : ctx.resolveServerId(src.getServerId()));
+                snap.setPathId(isBlank(src.getPathId()) ? null : ctx.resolvePathId(src.getPathId()));
+                snap.setCommandConfigId(isBlank(src.getCommandConfigId())
+                        ? null : ctx.resolveCommandConfigId(src.getCommandConfigId()));
+                snap.setTiming(src.getTiming());
+                current.setSingleUploadTask(snap);
+            }
             result.setSingleTaskIdAdopted(adoptedTaskId);
 
             // 保存合并后的配置
@@ -199,7 +214,7 @@ public class ConfigImporter {
             if (payload.getVersion() == null) {
                 return lm.get("config.import.versionError");
             }
-            // 1.0.8/补定②（清单⑥）：支持 3.0 与 3.1（3.0 无新字段→Gson 补 null，天然兼容）；
+            // 1.0.8/补定②（清单⑥）：支持 3.0 与 3.1 与 3.2（旧版无新字段→Gson 补 null，天然兼容）；
             // 高于本机支持 → 拒绝并提示升级（防旧插件吞读新文件造成字段静默丢失）
             int cmp = compareVersion(payload.getVersion(), SUPPORTED_VERSION);
             if (cmp > 0) {

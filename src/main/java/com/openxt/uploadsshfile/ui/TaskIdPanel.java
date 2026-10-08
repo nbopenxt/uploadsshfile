@@ -4,9 +4,11 @@ import com.intellij.notification.Notification;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
 import com.intellij.notification.NotificationGroupManager;
+import com.intellij.notification.NotificationGroup;
 import com.openxt.uploadsshfile.i18n.LanguageManager;
 import com.openxt.uploadsshfile.model.TaskIdGenerator;
 import com.openxt.uploadsshfile.snippet.BuildSnippetGenerator;
+import com.openxt.uploadsshfile.startup.IdeBootstrap;
 
 import javax.swing.*;
 import java.awt.*;
@@ -35,8 +37,10 @@ public class TaskIdPanel extends JPanel {
          */
         boolean persist(String newId);
 
-        /** true＝批处理任务片段（不含 --file，R26）；false＝单任务 */
+        /** true＝批处理任务片段；false＝单任务。D-38 起两形态命令行同构（run <任务ID> --yes，
+         *  均不含 --file——文件清单由 CLI 按任务 ID 读配置：批＝子任务 filePaths，单＝关窗快照） */
         boolean isBatch();
+        // D-36 的 snippetFiles() 契约已被 D-38 作废删除（片段不再内嵌选中文件）
     }
 
     private final JTextField idField;
@@ -45,7 +49,8 @@ public class TaskIdPanel extends JPanel {
     private final LanguageManager lm;
 
     /**
-     * @param initialId  文本框初值（persistedId；null→空框，首次复制时自动预生成）
+     * @param initialId  文本框初值。D-25（FR-04）起宿主开窗即预填（已落盘值或雪花默认值），
+     *                   正常不为空；空框分支保留＝兜底，首次复制时仍自动预生成雪花
      * @param cliBatPath 插件 bat 绝对路径实值（plugin 层以 PathManager 取得，RISK-08——禁止写死）
      */
     public TaskIdPanel(TaskIdHost host, String initialId, String cliBatPath, LanguageManager lm) {
@@ -57,6 +62,7 @@ public class TaskIdPanel extends JPanel {
         add(new JLabel(lm.get("task.id.label")));
         idField = new JTextField(initialId == null ? "" : initialId, 26);
         idField.setToolTipText(lm.get("task.id.tooltip"));
+        installLiveValidation();
         add(idField);
 
         JButton copyBtn = new JButton(lm.get("task.id.copy"));
@@ -69,8 +75,55 @@ public class TaskIdPanel extends JPanel {
         return idField.getText().trim();
     }
 
+    /**
+     * D-30C（用户裁定 2026-10-04："输入不符合规则的内容……应当提示错误信息"）：
+     * 输入期实时标记——非法**新值**（非空、不同于已落盘值、字符集不过）即时红框＋
+     * 错误文案 tooltip（非模态不打断输入）；合法/回填存量值恢复正常外观。
+     * 落盘四入口的模态弹窗（D-25）保留＝双保险，语义不冲突。
+     */
+    private void installLiveValidation() {
+        javax.swing.event.DocumentListener watcher = new javax.swing.event.DocumentListener() {
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refreshValidityUi(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refreshValidityUi(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refreshValidityUi(); }
+        };
+        idField.getDocument().addDocumentListener(watcher);
+        refreshValidityUi();
+    }
+
+    private void refreshValidityUi() {
+        boolean invalid = isInvalidPending();
+        idField.setBorder(invalid
+                ? javax.swing.BorderFactory.createLineBorder(java.awt.Color.RED)
+                : UIManager.getBorder("TextField.border"));
+        idField.setToolTipText(invalid ? lm.get("task.id.invalid") : lm.get("task.id.tooltip"));
+    }
+
+    /** 当前显示值＝"已改且非法"的新值（供对话框关窗守卫查询，D-30C） */
+    public boolean hasInvalidPendingEdit() {
+        return isInvalidPending();
+    }
+
+    private boolean isInvalidPending() {
+        String shown = getDisplayedId();
+        if (shown.isEmpty()) {
+            return false; // 空值＝D-25 兜底预生成分支，不算非法
+        }
+        String persisted = host.persistedId();
+        if (shown.equals(persisted)) {
+            return false; // 回填存量原值＝视同未改号（FR-05 不透明放行）
+        }
+        return !TaskIdGenerator.isValidNewId(shown);
+    }
+
     private JPopupMenu buildToolMenu() {
         JPopupMenu menu = new JPopupMenu();
+        // D-34（2026-10-04 用户裁定）：菜单顶部灰字说明——片段面向构建钩子（上传构建产物），
+        // 与"右键选中文件即传"的 GUI 交互用法区分，消除"为什么片段里是 war 不是我选的 a.txt"困惑
+        JMenuItem note = new JMenuItem(lm.get("copy.snippet.menu.note"));
+        note.setEnabled(false);
+        menu.add(note);
+        menu.addSeparator();
         String hint = " " + lm.get("copy.snippet.menu.hint");
         menu.add(toolItem(BuildSnippetGenerator.Tool.GRADLE_GROOVY, "Gradle (Groovy DSL)", null));
         menu.add(toolItem(BuildSnippetGenerator.Tool.GRADLE_KOTLIN, "Gradle (Kotlin DSL)", null));
@@ -86,6 +139,13 @@ public class TaskIdPanel extends JPanel {
     }
 
     private void doCopy(BuildSnippetGenerator.Tool tool, boolean isWarnFeed) {
+        // D-29（2026-10-04 热载半生态实证）：片段内嵌 bat 绝对路径——插件装/升级若经
+        // 动态热载（loaded without restart），appStarted/projectOpened 均不再触发、
+        // bat 已被安装过程清掉＝复制出死链。复制动作前先幂等补生成（文件 I/O 毫秒级，
+        // MD5 一致时零写盘，EDT 可接受）。
+        IdeBootstrap.ensureCliBat();
+        // D-38：--file 旗标整体作废——单任务片段仅带任务 ID，CLI 执行时读关窗快照清单
+        //（多选拒绝逻辑 copy.snippet.files.needone 随之取消；文件＝最后一次关窗保存的清单）
         String id = idField.getText().trim();
         boolean savedNow = false;
 
@@ -112,7 +172,7 @@ public class TaskIdPanel extends JPanel {
             savedNow = true;
         }
 
-        String snippet = BuildSnippetGenerator.generate(tool, cliBatPath, id, host.isBatch());
+        String snippet = BuildSnippetGenerator.generate(tool, cliBatPath, id, host.isBatch()); // D-38：形态以布尔区分，不含文件
         Toolkit.getDefaultToolkit().getSystemClipboard()
                 .setContents(new StringSelection(snippet), null);
 
@@ -135,10 +195,18 @@ public class TaskIdPanel extends JPanel {
         if (savedNow) {
             content = content + "\n" + lm.get("copy.snippet.id.unsaved");
         }
-        Notifications.Bus.notify(
-                NotificationGroupManager.getInstance()
-                        .getNotificationGroup("UploadSSHFile.Snippet")
-                        .createNotification(lm.get("task.id.copy"), content, type),
-                null);
+        // D-29（2026-10-04 动态热载半生态 NPE 实证）：热载时 plugin.xml 的
+        // <notificationGroup> EP 可能未注册，getNotificationGroup 返回 null——
+        // 剪贴板已写入、复制事实成功，反馈降级为静默＋日志，不得再炸 EDT 异常
+        NotificationGroup group = NotificationGroupManager.getInstance()
+                .getNotificationGroup("UploadSSHFile.Snippet");
+        if (group != null) {
+            Notifications.Bus.notify(
+                    group.createNotification(lm.get("task.id.copy"), content, type),
+                    null);
+        } else {
+            com.openxt.uploadsshfile.util.Logger.debug("TaskIdPanel",
+                    "snippet copied; notification group unavailable (dynamic-reload state?), balloon skipped");
+        }
     }
 }
