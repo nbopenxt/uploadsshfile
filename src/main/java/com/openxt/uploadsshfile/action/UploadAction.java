@@ -63,8 +63,8 @@ public class UploadAction extends AnAction {
 
     public UploadAction() {
         super();
-        // D-26：action 实例化可发生在 projectOpened/appStarted 之前（会话恢复后首次右键菜单，
-        // 2026-10-04 实测红气球），构造体触达存储单例前先幂等注入路径
+        // D-26：action 实例化可发生在启动预热回调之前（会话恢复后首次右键菜单，
+        // 2026-10-04 实测红气球；预热回调载体见 IdeBootstrap 注释，D-45 整改），构造体触达存储单例前先幂等注入路径
         // D-31：顺带 bat 自愈（热载半生态下点一次菜单即补齐，外部直敲 CLI 不再踩空）
         IdeBootstrap.ensureReady();
         this.sftpService = new SftpService();

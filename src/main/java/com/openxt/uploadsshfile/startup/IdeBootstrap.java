@@ -18,12 +18,17 @@ import java.nio.file.Paths;
  * fail-fast 红气球（UploadAction.&lt;init&gt; 等 6 个 action 构造体触达存储单例）。
  *
  * 触发点（三道幂等保险，同值 initialize 天然合并，不产生第二控制点）：
- *   ① {@link IdeAppLifecycleListener#appStarted()}——IDE 启动完成即注入并生成 CLI bat
- *      （用户从未打开项目也满足 D-23"首启生成"）；
+ *   ① {@link IdeAppLifecycleListener#welcomeScreenDisplayed()}——启动预热（欢迎屏展示）
+ *      即注入并生成 CLI bat（用户从未打开项目也满足 D-23"首启生成"；D-45 载体整改，
+ *      原 appStarted 为 @ApiStatus.Internal 审核判禁）；
  *   ② 各 action 构造体/菜单展开期入口（update/isSelected）首行 ensureReady()
  *      （D-31 起＝注入＋bat 自愈）——覆盖任何先于 ① 的实例化时序，
  *      且热载半生态（无生命周期回调）下点一次菜单即补齐 bat；
- *   ③ {@link IdeStartupActivity#projectOpened}——保留为既有二道保险。
+ *   ③ {@link IdeStartupActivity#execute}——开项目二道保险（postStartupActivity EP；
+ *      D-45 载体由 projectOpened 换为 ProjectActivity，后者已 @ScheduledForRemoval）；
+ *   ④ {@link IdePluginLoadListener#pluginLoaded}——本插件热载完成即预热（D-46，
+ *      DynamicPluginListener 公开回调；装/重装后免重启免点菜单生成 java-home.txt）。
+ *   （另有 D-29 复制入口一道，合计触发面五道——D-31"四道并存"口径之扩展，同值幂等合并。）
  *
  * ensurePaths() 吞 Throwable 尽力记录：action 构造入口不得引入新失败面；
  * 真实失败仍由 core getInstance() fail-fast 在首次使用时向用户呈现指引。
@@ -35,7 +40,8 @@ public final class IdeBootstrap {
 
     /**
      * D-31（2026-10-04 热载半生态二次复发，用户裁定加兜底）：菜单/构造入口统一走本方法＝
-     * 注入＋bat 自愈。热载（loaded without restart）不触发 appStarted/projectOpened，
+     * 注入＋bat 自愈。热载（loaded without restart）不触发启动预热回调（D-45 前＝appStarted/
+     * projectOpened，现＝welcomeScreenDisplayed/postStartupActivity），
      * 而插件安装会清空目录＝bat 缺失、外部直敲 CLI 踩空——action 入口顺带补生成后，
      * 用户点过任意插件菜单 bat 即回。代价实测口径：470B 文件读＋MD5 比对亚毫秒级，
      * 仅缺失/滞后才写盘（&lt;5ms），菜单展开线程可接受（D-26"入口不写盘"决定经用户裁定于此反转）。
@@ -97,7 +103,7 @@ public final class IdeBootstrap {
     /**
      * D-39：java-home.txt 单点写入——内容＝本 IDE 进程 java.home 下 java.exe 绝对路径（单行 CRLF）。
      * 仅纯 ASCII 路径可写（cmd 以系统 ANSI 码页解 bat，非 ASCII 字节不可靠——宁可回落
-     * JAVA_HOME/PATH）；路径变化才重写（appStarted/菜单入口触发，成本＝一次读比对）。
+     * JAVA_HOME/PATH）；路径变化才重写（启动预热/菜单入口触发，成本＝一次读比对）。
      */
     private static void writeJavaHomeProbe(Path pluginDir) {
         if (pluginDir == null) {

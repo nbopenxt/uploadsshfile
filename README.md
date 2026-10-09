@@ -6,11 +6,11 @@
 
 **Plugin Name**: UploadSSHFile  
 **Plugin ID**: `com.openxt.uploadsshfile`  
-**Version**: 1.0.9  
+**Version**: 1.0.10  
 **Developer**: Kola  
 **Category**: Utility
 
-> **1.0.9** (2026-10-08): the CLI launcher now checks the *version* of every Java runtime it finds and requires Java 21+ — older JVMs are skipped instead of used, and when no Java 21+ runtime exists it prints an actionable message and exits with code 12 (previously it died with a raw `UnsupportedClassVersionError`). If IDEA has not run since the plugin was installed or upgraded, the launcher prints one line — `Please restart IntelliJ IDEA to run this task.` — and stops with exit code 12. 1.0.8 introduced the CLI, task IDs and build snippets.
+> **1.0.10** (finalized 2026-10-08/09): the CLI launcher now checks the *version* of every Java runtime it finds and requires Java 21+ — older JVMs are skipped instead of used, and when no Java 21+ runtime exists it prints an actionable message and exits with code 12 (previously it died with a raw `UnsupportedClassVersionError`). If IDEA has not run since the plugin was installed or upgraded, the launcher prints one line — `Please restart IntelliJ IDEA to run this task.` — and stops with exit code 12. In addition, 1.0.10 swaps two platform APIs that JetBrains' compatibility review flagged as internal/deprecated for their officially recommended public equivalents — no user-visible change. (Version 1.0.9 was submitted for review but never released; it became 1.0.10 after that review feedback.) 1.0.8 introduced the CLI, task IDs and build snippets.
 
 ---
 
@@ -109,7 +109,7 @@ Pattern-matches commands using built-in regex rules to identify common risky ope
 - **Batch task management**: Create, edit, clone, and delete batch upload tasks
 - **Multi-subtask composition**: Each batch task contains multiple sub-tasks, each specifying server + upload path + files + command group
 - **Sequential execution**: Sub-tasks execute in order; each sub-task completes its upload and command before the next begins
-- **Real-time progress**: Shows overall batch progress, current sub-task status, and per-sub-task results
+- **Real-time progress**: Shows overall batch progress, current sub-task status, and per-sub-task results — with per-file progress (file name, live percentage, speed, ETA) in the dialog and, since 1.0.10, in the CLI / build-hook console too
 - **One-click execution**: Select a batch task from the menu and run all sub-tasks at once
 
 ### 7. Import / Export Configuration
@@ -143,7 +143,7 @@ Pattern-matches commands using built-in regex rules to identify common risky ope
 
 ---
 
-## CLI Auto-Upload (introduced in 1.0.8, Java 21+ launcher gate since 1.0.9)
+## CLI Auto-Upload (introduced in 1.0.8, Java 21+ launcher gate since 1.0.10)
 
 Upload the build artifact and run the remote command group without returning to the IDE — triggered from a build hook or typed by hand in a terminal. Human confirmation of risk prompts is by design (semi-automatic).
 
@@ -323,11 +323,11 @@ For questions or suggestions, please leave a comment on the IDEA Plugin Marketpl
 
 **插件名称**：UploadSSHFile  
 **插件 ID**：`com.openxt.uploadsshfile`  
-**插件版本**：1.0.9  
+**插件版本**：1.0.10  
 **开发者**：Kola  
 **插件类型**：实用工具 (Utility)
 
-> **1.0.9**（2026-10-08）：CLI 启动器现在会校验它找到的每个 Java 运行时的**版本**，要求 Java 21+——低于 21 的 JVM 一律跳过、不再拿来就跑；一台 21+ 都没有时给出可行动的提示（回显它检查到的取值＋两条处置）并以退出码 12 结束，不再把 JVM 的版本错误堆栈甩给用户。若 IDEA 在装/升级后还没跑过，启动器只回一句 `Please restart IntelliJ IDEA to run this task.`（退出码 12）——就是「重启 IDEA 才能执行本任务」的意思，启动一次 IDEA 即可，并非系统故障。1.0.8 引入了 CLI、任务 ID 与构建片段。
+> **1.0.10**（定稿于 2026-10-08/09）：CLI 启动器现在会校验它找到的每个 Java 运行时的**版本**，要求 Java 21+——低于 21 的 JVM 一律跳过、不再拿来就跑；一台 21+ 都没有时给出可行动的提示（回显它检查到的取值＋两条处置）并以退出码 12 结束，不再把 JVM 的版本错误堆栈甩给用户。若 IDEA 在装/升级后还没跑过，启动器只回一句 `Please restart IntelliJ IDEA to run this task.`（退出码 12）——就是「重启 IDEA 才能执行本任务」的意思，启动一次 IDEA 即可，并非系统故障。另外，1.0.10 把 JetBrains 兼容性审核判为内部／将废弃的两个平台 API 换成了官方推荐的公开替代品——使用者无任何可见变化。（1.0.9 曾提交审核但从未上架，收到审核反馈后并入 1.0.10 发布。）1.0.8 引入了 CLI、任务 ID 与构建片段。
 
 ---
 
@@ -425,7 +425,7 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 - **批处理任务管理**：创建、编辑、克隆、删除批处理上传任务
 - **多子任务组合**：每个批处理任务包含多个子任务，各自指定 服务器 + 上传路径 + 文件列表 + 命令组
 - **顺序执行**：子任务按序执行，每个子任务完成上传和命令执行后才进入下一个
-- **实时进度**：显示总体批处理进度、当前子任务状态及各子任务执行结果
+- **实时进度**：显示总体批处理进度、当前子任务状态及各子任务执行结果——并有逐文件进度（文件名、实时百分比、速率、剩余时间），1.0.10 起 CLI／构建钩子控制台同样逐文件回显
 - **一键执行**：从菜单选择批处理任务，一次性运行所有子任务
 
 ### 7. 导入导出配置
@@ -459,7 +459,7 @@ UploadSSHFile 是一款专为开发者设计的 IntelliJ IDEA 插件，通过集
 
 ---
 
-## CLI 自动上传（1.0.8 引入，1.0.9 起启动器校验 Java 21+）
+## CLI 自动上传（1.0.8 引入，1.0.10 起启动器校验 Java 21+）
 
 编译后无需回到 IDE 点鼠标即可上传产物并执行远端命令组——由构建钩子触发或在终端手工敲入；风险询问在终端人工确认是设计意图（半自动）。
 

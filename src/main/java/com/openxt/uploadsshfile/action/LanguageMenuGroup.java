@@ -18,7 +18,7 @@ public class LanguageMenuGroup extends DefaultActionGroup {
 
     @Override
     public AnAction @NotNull [] getChildren(AnActionEvent e) {
-        // D-26：子菜单装配可早于 projectOpened/appStarted，统一入口幂等保证路径注入
+        // D-26：子菜单装配可早于启动预热回调（D-45），统一入口幂等保证路径注入
         // D-31：ensureReady＝注入＋bat 自愈（热载半生态点菜单即补齐）
         IdeBootstrap.ensureReady();
         List<LanguageInfo> languages = LanguageManager.getSupportedLanguages();
@@ -33,7 +33,7 @@ public class LanguageMenuGroup extends DefaultActionGroup {
 
     @Override
     public void update(@NotNull AnActionEvent e) {
-        // D-26：菜单展开可早于 projectOpened/appStarted，统一入口幂等保证路径注入
+        // D-26：菜单展开可早于启动预热回调（D-45），统一入口幂等保证路径注入
         // D-31：ensureReady＝注入＋bat 自愈（热载半生态点菜单即补齐）
         IdeBootstrap.ensureReady();
         super.update(e);

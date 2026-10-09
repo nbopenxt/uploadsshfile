@@ -327,10 +327,36 @@ public class CliRunner {
         }
 
         @Override
+        public void onFileStart(String fileName, int fileIndex, int totalFiles) {
+            // D-47（2026-10-09 用户要求"批处理上传每个文件也要进度显示，与单文件一致"）：
+            // 原注释"批内多文件交错、非 \r 通道"系误解——子任务由编排器顺序执行、
+            // 子任务内文件逐个上传（BatchExecutionOrchestrator 文件循环），进度回调单线程，
+            // 与单任务完全同构 → 直接复用同款 \r 刷新原语（echo.progress/EchoGuard）
+            echo.println("   [" + fileIndex + "/" + totalFiles + "] uploading: " + ascii(fileName));
+        }
+
+        @Override
         public void onUploadProgress(String fileName, int percent, long uploaded, long total) {
-            // 批处理子任务上传进度：非 \r 刷新通道（批内多文件交错），verbose 才逐行
-            if (verbose) {
+            // D-47：有控制台＝与单任务同款 \r 实时刷新行；无控制台（重定向）静默降级、
+            //        完成行照打（同单任务 D-24 口径）；无控制台＋--verbose 保留逐行百分数
+            if (ConsoleCaps.hasConsole()) {
+                echo.progress(String.format("   [%s] [%s%s] %d%% %d/%d bytes",
+                        ascii(fileName),
+                        "#".repeat(Math.max(0, percent / 10)),
+                        "-".repeat(Math.max(0, 10 - percent / 10)),
+                        percent, uploaded, total));
+            } else if (verbose) {
                 echo.println("   [progress] " + ascii(fileName) + " " + percent + "%");
+            }
+        }
+
+        @Override
+        public void onFileCompleted(String fileName, long size, boolean success, String errorMessage) {
+            // D-47：顶层条目完成行（目录＝整树合计字节，编排器外层回调语义）
+            if (success) {
+                echo.println("   [OK] " + ascii(fileName) + " (" + size + " bytes)");
+            } else {
+                echo.println("   [FAIL] " + ascii(fileName) + ": " + ascii(errorMessage));
             }
         }
 

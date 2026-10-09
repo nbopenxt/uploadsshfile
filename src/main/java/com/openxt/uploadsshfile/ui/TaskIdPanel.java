@@ -140,7 +140,7 @@ public class TaskIdPanel extends JPanel {
 
     private void doCopy(BuildSnippetGenerator.Tool tool, boolean isWarnFeed) {
         // D-29（2026-10-04 热载半生态实证）：片段内嵌 bat 绝对路径——插件装/升级若经
-        // 动态热载（loaded without restart），appStarted/projectOpened 均不再触发、
+        // 动态热载（loaded without restart），启动预热回调均不再触发（D-45 前＝appStarted/projectOpened）、
         // bat 已被安装过程清掉＝复制出死链。复制动作前先幂等补生成（文件 I/O 毫秒级，
         // MD5 一致时零写盘，EDT 可接受）。
         IdeBootstrap.ensureCliBat();

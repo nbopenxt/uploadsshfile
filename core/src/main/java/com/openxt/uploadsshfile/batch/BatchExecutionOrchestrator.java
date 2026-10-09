@@ -272,15 +272,22 @@ public class BatchExecutionOrchestrator {
 
                 // Accumulated bytes from completed inner files (for directory uploads)
                 final long[] innerCompletedBytes = {0};
+                // D-47（2026-10-09）：percent 分母＝本顶层条目总字节（文件＝自身；目录＝整树递归和）。
+                // 旧实现以"当前内部文件 total"为分母——多文件目录首个内层文件即冲 100%，
+                // GUI"当前文件进度条"与 CLI 批进度行（D-47 接通）都会失真；两态同轮修正（SRS D-47）。
+                final long outerTotalBytes = file.isDirectory() ? calculateSize(file) : file.length();
 
                 SftpService.UploadProgressCallback progressCallback = new SftpService.UploadProgressCallback() {
                     @Override
                     public void onProgress(String fileName, int percent, long uploaded, long total) {
                         if (listener != null) {
                             // For directories: accumulate inner file progress and recalculate percent
+                            // (against outerTotalBytes — D-47 fix; for plain files outerTotal==total, behavior unchanged)
                             long accumulatedUploaded = innerCompletedBytes[0] + uploaded;
-                            int adjustedPercent = (total > 0) ? (int) (accumulatedUploaded * 100.0 / total) : percent;
-                            listener.onUploadProgress(fileName, Math.min(adjustedPercent, 100), accumulatedUploaded, total);
+                            int adjustedPercent = outerTotalBytes > 0
+                                    ? (int) (accumulatedUploaded * 100.0 / outerTotalBytes) : 100;
+                            listener.onUploadProgress(fileName, Math.min(adjustedPercent, 100),
+                                    accumulatedUploaded, outerTotalBytes);
                         }
                     }
                     @Override
@@ -302,7 +309,7 @@ public class BatchExecutionOrchestrator {
                     }
                     // Notify listener of file/dir upload completion for progress tracking
                     if (listener != null) {
-                        long completedSize = file.isDirectory() ? calculateSize(file) : file.length();
+                        long completedSize = outerTotalBytes; // D-47：复用外层总字节（同值，免二次遍历目录树）
                         listener.onFileCompleted(file.getName(), completedSize, true, null);
                     }
                 } catch (Exception e) {

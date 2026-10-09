@@ -13,7 +13,7 @@ import static org.junit.Assert.fail;
 
 /**
  * D-26（SRS V2.8）回归防线：PluginPathManager 唯一控制点注入语义——
- * 未初始化 fail-fast 带指引、同值幂等合并（appStarted/菜单入口/projectOpened 三道保险
+ * 未初始化 fail-fast 带指引、同值幂等合并（启动预热/菜单入口/开项目 activity 三道保险——D-45 后载体
  * 共用同值调用不互斥）、异值拒绝（防第二控制点分叉）。
  */
 public class PluginPathManagerTest {
